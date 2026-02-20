@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BlokJS — Documentation</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.min.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+    body { font-family: system-ui, -apple-system, sans-serif; color: #1a1a1a; background: #fff; }
+
+    .layout { display: flex; min-height: 100vh; }
+
+    .sidebar {
+      position: fixed; top: 0; left: 0; bottom: 0; width: 220px;
+      overflow-y: auto; padding: 24px 16px;
+      border-right: 1px solid #e5e5e5; background: #fafafa;
+    }
+    .logo { font-size: 22px; font-weight: 800; color: #f59e0b; }
+    .version { font-size: 12px; color: #999; margin-left: 6px; }
+    .nav-group { margin-top: 20px; }
+    .nav-title {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+      color: #999; font-weight: 600; margin-bottom: 6px;
+    }
+    .sidebar a {
+      display: block; font-size: 13px; color: #555; text-decoration: none;
+      padding: 3px 0; line-height: 1.4;
+    }
+    .sidebar a:hover { color: #f59e0b; }
+
+    .content {
+      margin-left: 220px; flex: 1; padding: 40px 48px; max-width: 900px;
+    }
+
+    .section { margin-bottom: 48px; }
+    h2 {
+      font-size: 22px; font-weight: 700; margin-bottom: 16px;
+      padding-bottom: 8px; border-bottom: 1px solid #eee;
+    }
+    h3 { font-size: 15px; font-weight: 600; margin: 24px 0 8px; color: #1a1a1a; }
+    .section p { font-size: 14px; line-height: 1.7; margin-bottom: 10px; color: #333; }
+
+    pre.code-block {
+      background: #f5f5f5; border-radius: 6px; padding: 14px 16px;
+      overflow-x: auto; margin: 10px 0 16px; border: 1px solid #e8e8e8;
+    }
+    pre.code-block code {
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 0.8125rem; line-height: 1.6; white-space: pre;
+      background: none; padding: 0; text-shadow: none;
+    }
+    pre.code-block[class*="language-"],
+    code[class*="language-"] { background: none; text-shadow: none; }
+    code.ic {
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 0.8rem; background: #f0f0f0; padding: 1px 5px; border-radius: 3px;
+    }
+
+    table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 13px; }
+    th { text-align: left; font-weight: 600; padding: 8px 10px; border-bottom: 2px solid #e5e5e5; }
+    td { padding: 7px 10px; border-bottom: 1px solid #eee; vertical-align: top; }
+    td code { font-size: 0.8rem; }
+    .table-wrap { overflow-x: auto; }
+
+    .note {
+      background: #eef2ff; border-left: 3px solid #f59e0b; padding: 10px 14px;
+      border-radius: 0 4px 4px 0; margin: 10px 0 16px; font-size: 13px; color: #333;
+    }
+
+    @media (max-width: 768px) {
+      .sidebar {
+        position: static; width: 100%; border-right: none;
+        border-bottom: 1px solid #e5e5e5; padding: 16px;
+      }
+      .nav-group { display: inline-block; vertical-align: top; margin-right: 24px; margin-top: 12px; }
+      .content { margin-left: 0; padding: 24px 16px; }
+      .layout { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@maleta/blokjs@0.1.0/dist/blokjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-markup.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-javascript.min.js"></script>
+  <script>
+    // --- Helpers ---
+    const c = (src, lang) => {
+      const cls = 'language-' + (lang || (src.trimStart().startsWith('<') ? 'markup' : 'javascript'))
+      return { pre: { class: 'code-block', children: [{ code: { class: cls, text: src } }] } }
+    }
+    const ic = t => ({ code: { class: 'ic', text: t } })
+    const p = text => ({ p: text })
+    const note = text => ({ div: { class: 'note', text } })
+    const sub = (id, title) => ({ h3: { id, text: title } })
+    const sec = (id, title, ...kids) => ({ div: { id, class: 'section', children: [{ h2: title }, ...kids] } })
+    const nav = (href, text) => ({ a: { href: '#' + href, text } })
+    const grp = (title, ...links) => ({ div: { class: 'nav-group', children: [{ div: { class: 'nav-title', text: title } }, ...links] } })
+
+    const tbl = (headers, rows) => ({
+      div: { class: 'table-wrap', children: [
+        { table: { children: [
+          { thead: { children: [{ tr: { children: headers.map(h => ({ th: h })) } }] } },
+          { tbody: { children: rows.map(r => (
+            { tr: { children: r.map(cell =>
+              typeof cell === 'string' ? { td: cell }
+              : Array.isArray(cell) ? { td: { children: cell } }
+              : { td: { children: [cell] } }
+            ) } }
+          )) } }
+        ] } }
+      ] }
+    })
+
+    // --- Mount ---
+    blok.mount('#app', {
+      mount() { Prism.highlightAll() },
+      view: ($) => ({
+        div: { class: 'layout', children: [
+
+          // ===== SIDEBAR =====
+          { nav: { class: 'sidebar', children: [
+            { div: { children: [
+              { span: { class: 'logo', text: 'BlokJS' } },
+              { span: { class: 'version', text: 'v0.1.0' } },
+            ] } },
+
+            grp('Getting Started',
+              nav('introduction', 'Introduction'),
+              nav('browser-support', 'Browser Support'),
+              nav('quick-start', 'Quick Start'),
+              nav('vite-plugin', 'Using with Vite'),
+              nav('full-example', 'Full Example'),
+            ),
+            grp('API',
+              nav('blokjs-component', 'blok.component()'),
+              nav('blokjs-mount', 'blok.mount()'),
+              nav('blokjs-store', 'blok.store()'),
+            ),
+            grp('Context',
+              nav('context', 'this.*'),
+            ),
+            grp('Component Definition',
+              nav('props', 'Props'),
+              nav('state', 'State'),
+              nav('computed', 'Computed'),
+              nav('watch', 'Watch'),
+              nav('methods', 'Methods'),
+              nav('async-methods', 'Async Methods'),
+              nav('lifecycle', 'Lifecycle'),
+              nav('view-fn', 'View Function'),
+            ),
+            grp('View DSL ($)',
+              nav('ref-proxy', 'Creating Refs'),
+              nav('negation', 'Negation'),
+              nav('iter-vars', 'Iteration Variables'),
+            ),
+            grp('Binding',
+              nav('elements', 'Elements'),
+              nav('text-bind', 'Text'),
+              nav('html-binding', 'HTML'),
+              nav('children', 'Children'),
+              nav('classes', 'Classes'),
+              nav('styles', 'Styles'),
+              nav('attributes', 'Attributes'),
+            ),
+            grp('Interaction',
+              nav('model', 'Model'),
+              nav('events', 'Events'),
+            ),
+            grp('Control Flow',
+              nav('conditionals', 'Conditionals'),
+              nav('loops', 'Loops'),
+            ),
+            grp('Composition',
+              nav('components', 'Components'),
+              nav('slots', 'Slots'),
+              nav('refs', 'Refs'),
+            ),
+            grp('Router',
+              nav('router', 'Overview'),
+              nav('route-outlet', 'Route Outlet'),
+              nav('route-links', 'Route Links'),
+              nav('route-params', 'Params & Query'),
+              nav('route-guards', 'Guards'),
+              nav('route-modes', 'Modes'),
+            ),
+            grp('Reactivity',
+              nav('reactivity', 'Overview'),
+              nav('array-mutations', 'Array Mutations'),
+              nav('batching', 'Batching'),
+            ),
+            grp('Validation',
+              nav('validate-api', 'validate.*'),
+              nav('validate-checks', 'What Gets Caught'),
+            ),
+          ] } },
+
+          // ===== CONTENT =====
+          { main: { class: 'content', children: [
+
+            // --- Introduction ---
+            sec('introduction', 'Introduction',
+              p('BlokJS is a tiny (~8 KB gzipped) reactive UI framework. No build step, no virtual DOM, no dependencies - just a script tag and plain JavaScript objects that describe your UI. State is reactive via ES Proxy - when data changes, only the affected DOM bindings update. Components, routing, stores, and async tracking are all built in.'),
+              { p: { children: ['Using an LLM to write BlokJS code? Include the ', { a: { href: '../packages/blokjs/llm-reference.md', text: 'LLM Reference' } }, ' (~2,900 tokens) in your context for best results.'] } },
+            ),
+
+            // --- Browser Support ---
+            sec('browser-support', 'Browser Support',
+              { p: { children: ['BlokJS targets ES2020 and uses modern browser APIs. No polyfills or legacy fallbacks are included. The core dependency (ES Proxy) has ', { a: { href: 'https://caniuse.com/proxy', text: '96%+ global browser support' } }, ' per ', { a: { href: 'https://caniuse.com/', text: 'caniuse.com' } }, '.'] } },
+              tbl(['Browser', 'Minimum Version'], [
+                ['Chrome', '91+'],
+                ['Edge', '91+'],
+                ['Firefox', '88+'],
+                ['Safari', '14.1+'],
+                ['Internet Explorer', 'Not supported'],
+              ]),
+              sub('required-apis', 'Required APIs'),
+              p('The framework relies on these modern JavaScript features:'),
+              tbl(['API', 'Used For', 'Chrome', 'Firefox', 'Safari'], [
+                ['ES Proxy / Reflect', 'Core reactivity system', '49+', '18+', '10+'],
+                ['WeakMap / Set / Symbol', 'Dependency tracking and internal references', '36+', '6+', '9+'],
+                [ic('queueMicrotask'), 'Batched DOM updates', '71+', '69+', '12.1+'],
+                [ic('globalThis'), 'Environment detection', '71+', '65+', '12.1+'],
+              ]),
+              p([ic('structuredClone'), ' is used for deep cloning state and store data when available (Safari 15.4+, Chrome 98+), but is ', { strong: { text: 'not required' } }, ' - the framework falls back to a shallow copy on older browsers.']),
+            ),
+
+            // --- Quick Start ---
+            sec('quick-start', 'Quick Start',
+              sub('quick-start-cdn', 'CDN (No Build Step)'),
+              p('Include BlokJS from a CDN and write your app in a single HTML file:'),
+              c(`<!DOCTYPE html>\n<html>\n<head>\n  <meta charset="utf-8">\n  <script src="https://cdn.jsdelivr.net/npm/@maleta/blokjs/dist/blokjs.min.js"><\/script>\n</head>\n<body>\n  <div id="app"><\/div>\n  <script>\n    blok.mount('#app', {\n      state: { count: 0 },\n\n      methods: {\n        inc() { this.count++ },\n        dec() { this.count-- },\n      },\n\n      view: ($) => ({\n        div: { children: [\n          { h1: { text: $.count } },\n          { button: { click: 'dec', text: '-' } },\n          { button: { click: 'inc', text: '+' } },\n        ] }\n      })\n    })\n  <\/script>\n</body>\n</html>`, 'markup'),
+              { p: { children: [
+                'The CDN script exposes a global ',
+                ic('blok'),
+                ' object with ',
+                ic('component'),
+                ', ',
+                ic('store'),
+                ', and ',
+                ic('mount'),
+                ' methods. State is reactive - when count changes, the bound h1 updates automatically.',
+              ] } },
+              p('The vanilla approach gives you full control over loading. You can split components across separate files and load them on demand - no bundler decides what ships in your initial payload:'),
+              c(`<!-- index.html -->\n<!DOCTYPE html>\n<html>\n<head>\n  <script src="https://cdn.jsdelivr.net/npm/@maleta/blokjs/dist/blokjs.min.js"><\/script>\n  <!-- Deferred scripts load in parallel but execute after HTML is parsed -->\n  <script src="/components/admin-panel.js" defer><\/script>\n</head>\n<body>\n  <div id="app"><\/div>\n  <script defer>\n    blok.mount('#app', {\n      view: () => ({ 'admin-panel': {} })\n    })\n  <\/script>\n</body>\n</html>`, 'markup'),
+              c(`// components/admin-panel.js\nblok.component('AdminPanel', {\n  state: { users: [] },\n\n  mount() {\n    fetch('/api/users')\n      .then(r => r.json())\n      .then(data => { this.users = data })\n  },\n\n  view: ($) => ({\n    div: { children: [\n      { h2: { text: 'Admin Panel' } },\n      { ul: { children: $.users.map(u => ({ li: { text: u.name } })) } },\n    ] }\n  })\n})`),
+              { p: { children: [
+                'The ',
+                ic('defer'),
+                ' attribute tells the browser to download the script in parallel while parsing HTML, then execute it - in source order - once the document is fully parsed. This means ',
+                ic('admin-panel.js'),
+                ' registers the component before ',
+                ic('blok.mount'),
+                ' runs, with zero render-blocking.',
+              ] } },
+              sub('quick-start-vite', 'Vite (Build Tool)'),
+              { p: { children: ['For larger projects, use the Vite plugin for auto-discovery, bundling, and HMR. See ', { a: { href: '#vite-plugin', text: 'Using with Vite' } }, '.'] } },
+              { p: { children: ['Want to see every feature in one place? ', { a: { href: '#full-example', text: 'Jump to the Task Board \u2192' } }] } },
+            ),
+
+            // --- Using with Vite ---
+            sec('vite-plugin', 'Using with Vite',
+              p('While BlokJS works without a build step, the Vite plugin adds conveniences for larger projects: automatic component and store registration from file directories, bundling everything into optimized output, and hot module replacement during development.'),
+              p('Scaffold a new project in one command:'),
+              c(`npm create blokjs my-app\ncd my-app\nnpm install\nnpx vite`),
+              sub('vite-manual', 'Manual Setup'),
+              p('Add to an existing Vite project:'),
+              c(`npm install blokjs vite-plugin-blokjs`),
+              p('Project structure:'),
+              c(`my-app/\n  index.html\n  main.js\n  vite.config.js\n  components/\n    counter.js\n  stores/\n    app.js`),
+              c(`<!-- index.html -->\n<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"></head>\n<body>\n  <div id="app"></div>\n  <script type="module" src="/main.js"><\/script>\n</body>\n</html>`, 'markup'),
+              c(`// vite.config.js\nimport { defineConfig } from 'vite'\nimport { blokjs } from 'vite-plugin-blokjs'\n\nexport default defineConfig({\n  plugins: [blokjs()],\n})`),
+              c(`// main.js\nimport { mount } from '@maleta/blokjs'\nimport 'virtual:blokjs'\n\nmount('#app', {\n  view: ($) => ({ counter: {} }),\n})`),
+              sub('vite-dev-build', 'Dev Server & Production Build'),
+              c(`npx vite          # dev server with HMR\nnpx vite build    # bundle to dist/\nnpx vite preview  # preview the production build`),
+              sub('vite-auto', 'Auto-Registration'),
+              { p: { children: [
+                'The plugin scans ',
+                ic('components/'),
+                ' and ',
+                ic('stores/'),
+                ' directories, registering each file by its filename. Files prefixed with ',
+                ic('_'),
+                ' are ignored.',
+              ] } },
+              c(`components/counter.js   -> component('counter', ...)\nstores/app.js           -> store('app', ...)\ncomponents/_helper.js   -> ignored`),
+              p('Component and store files use default exports:'),
+              c(`// components/counter.js\nexport default {\n  state: { count: 0 },\n  methods: {\n    increment() { this.count++ },\n    decrement() { this.count-- },\n  },\n  view: ($) => ({\n    div: { children: [\n      { h1: { text: $.count } },\n      { button: { click: 'decrement', text: '-' } },\n      { button: { click: 'increment', text: '+' } },\n    ] },\n  }),\n}`),
+              sub('vite-options', 'Plugin Options'),
+              c(`blokjs({\n  componentsDir: 'components', // default\n  storesDir: 'stores',         // default\n})`),
+            ),
+
+            // --- blok.component() ---
+            sec('blokjs-component', 'blok.component(name, def)',
+              p('Registers a reusable component. The name should start with an uppercase letter - lowercase names are treated as HTML elements, not components.'),
+              c(`blok.component('UserCard', {
+  props: ['name', 'email'],
+
+  view: ($) => ({
+    div: { class: 'card', children: [
+      { h3: { text: $.name } },
+      { p: { text: $.email } },
+    ] }
+  })
+})`),
+              p('Components are used in templates by name:'),
+              c("{ UserCard: { name: 'Alice', email: 'alice@example.com' } }"),
+              sub('component-def', 'Definition Shape'),
+              tbl(['Property', 'Type', 'Description'], [
+                [ic('props'), ic('string[]'), 'Property names the component accepts from its parent'],
+                [ic('state'), ic('Record<string, any>'), 'Initial reactive state (deep cloned via structuredClone when available, shallow copy otherwise)'],
+                [ic('computed'), ic('Record<string, fn>'), 'Derived getter functions. Not cached - re-evaluates on every read'],
+                [ic('watch'), ic('Record<string, fn>'), 'Watchers for top-level state/prop changes. Receives (newVal, oldVal)'],
+                [ic('methods'), ic('Record<string, fn>'), 'Instance methods. Async methods get automatic loading/error tracking'],
+                [ic('mount'), ic('fn'), 'Called after the component is inserted into the DOM'],
+                [ic('unmount'), ic('fn'), 'Called when the component is destroyed'],
+                [ic('view'), ic('($) => object'), 'Returns a template object describing the UI. Required'],
+              ]),
+              { p: { children: ['Only ', ic('view'), ' is required. All other properties are optional.'] } },
+            ),
+
+            // --- blok.mount() ---
+            sec('blokjs-mount', 'blok.mount(target, opts)',
+              p('Mounts the root application onto a DOM element. Returns an object with a destroy() method.'),
+              c(`const app = blok.mount('#app', {
+  state: { count: 0 },
+  view: ($) => ({ div: { text: $.count } })
+})
+
+// Tear down later
+app.destroy()`),
+              { p: { children: [
+                'The ',
+                ic('target'),
+                ' can be a CSS selector string or an HTMLElement. Calling ',
+                ic('blok.mount()'),
+                ' again without first calling ',
+                ic('destroy()'),
+                ' throws an error. After ',
+                ic('destroy()'),
+                ', all component and store registrations are lost - re-register them before mounting again.',
+              ] } },
+              sub('mount-options', 'Root-Only Options'),
+              { p: { children: [
+                ic('blok.mount()'),
+                ' accepts all component definition options (props, state, computed, watch, methods, mount, unmount, view) plus these root-only options for ',
+                { a: { href: '#router', text: 'routing' } },
+                ':',
+              ] } },
+              tbl(['Option', 'Type', 'Description'], [
+                [ic('routes'), ic('RouteConfig[]'), 'Route definitions for client-side routing'],
+                [ic('guards'), ic('Record<string, fn>'), 'Named route guard functions'],
+                [ic('mode'), ic("'hash' | 'history' | 'auto'"), "Router mode (default: 'auto'). 'auto' uses hash for file:// URLs, history otherwise"],
+              ]),
+            ),
+
+            // --- blok.store() ---
+            sec('blokjs-store', 'blok.store(name, def)',
+              p('Registers a named store with structured state, computed properties, and methods. Call before blok.mount().'),
+              c(`blok.store('auth', {
+  state: { user: null, token: null },
+
+  computed: {
+    isLoggedIn() { return this.user !== null }
+  },
+
+  methods: {
+    logout() { this.user = null; this.token = null },
+    async login(email, password) {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password })
+      })
+      const data = await res.json()
+      this.user = data.user
+      this.token = data.token
+    }
+  }
+})`),
+              tbl(['Property', 'Type', 'Description'], [
+                [ic('state'), ic('Record<string, any>'), 'Initial reactive state (deep cloned via structuredClone when available, shallow copy otherwise)'],
+                [ic('computed'), ic('Record<string, fn>'), 'Derived values. this refers to the store proxy.'],
+                [ic('methods'), ic('Record<string, fn>'), 'Actions. this refers to the store proxy. Async methods get automatic loading/error tracking. Store methods cannot access other stores via this — use component methods for cross-store interaction.'],
+              ]),
+              sub('store-access', 'Accessing Stores'),
+              c(`// In methods / lifecycle
+this.store.auth.user          // state
+this.store.auth.isLoggedIn    // computed
+this.store.auth.login(e, p)   // method
+
+// In templates
+{ span: { text: $.store.auth.user.name } }
+{ when: $.store.auth.isLoggedIn, children: [...] }`),
+              sub('store-loading', 'Store Loading & Error'),
+              { p: { children: [
+                'Async store methods automatically get ',
+                ic('loading'),
+                ' and ',
+                ic('error'),
+                ' tracking (same pattern as ',
+                { a: { href: '#async-methods', text: 'component async methods' } },
+                '):',
+              ] } },
+              c(`// In templates
+{ when: $.store.auth.loading.login, children: [
+  { p: 'Signing in...' }
+] }
+
+{ when: $.store.auth.error.login, children: [
+  { p: { class: 'error', text: $.store.auth.error.login } }
+] }
+
+// In methods
+this.store.auth.loading.login  // true while running
+this.store.auth.error.login    // rejection value (typically Error) or null`),
+            ),
+
+            // --- Context ---
+            sec('context', 'Context (this)',
+              { p: { children: [
+                'Inside methods, computed, watch, and lifecycle hooks, ',
+                ic('this'),
+                ' provides access to:',
+              ] } },
+              tbl(['Property', 'Description'], [
+                [ic('this.<state>'), 'Read/write local state properties'],
+                [ic('this.<computed>'), 'Read computed values'],
+                [ic('this.<method>()'), 'Call methods'],
+                [ic('this.<prop>'), 'Read props passed by parent'],
+                [ic('this.store'), 'Access named stores via this.store.<name> (read/write)'],
+                [ic('this.loading'), 'Reactive loading state for async methods - this.loading.<method> is true while running'],
+                [ic('this.error'), 'Reactive error state for async methods - this.error.<method> holds the Error or null'],
+                [ic('this.route'), '{ path, params, query } - current route info'],
+                [ic('this.refs'), 'Object of named DOM element references'],
+                [ic('this.el'), 'The component\'s root DOM element'],
+                [ic('this.emit(event, payload?)'), 'Emit an event to the parent component'],
+                [ic('this.navigate(to)'), 'Navigate to a path (string) or history offset (number)'],
+              ]),
+              c(`methods: {
+  save() {
+    this.store.myStore.items.push({ name: this.name })  // write to store
+    this.name = ''                                // write to state
+    this.emit('saved')                            // notify parent
+    this.navigate('/')                            // go to home
+    this.refs.input.focus()                       // access DOM
+    console.log(this.route.params.id)             // read route
+    console.log(this.total)                       // read computed
+  }
+}`),
+              note('These names are reserved and cannot be used as state properties: store, loading, error, refs, el, route, emit, navigate.'),
+            ),
+
+            // --- Props ---
+            sec('props', 'Props',
+              p('An array of property names the component accepts from its parent.'),
+              c(`blok.component('Badge', {
+  props: ['label', 'color'],
+
+  view: ($) => ({
+    span: {
+      class: 'badge',
+      style: { backgroundColor: $.color },
+      text: $.label,
+    }
+  })
+})
+
+// Usage
+{ Badge: { label: 'New', color: '#f59e0b' } }`),
+              { p: { children: [
+                'Props passed as ',
+                ic('$'),
+                ' refs are reactive — changes in the parent automatically update the child. Writing to a prop in the child writes back to the parent.',
+              ] } },
+              note('The props array is declarative — BlokJS does not validate that passed props match the list. Any property passed to a component becomes a prop regardless.'),
+            ),
+
+            // --- State ---
+            sec('state', 'State',
+              p('Initial local reactive state. Each component instance gets a deep clone (via structuredClone when available, shallow copy otherwise). If state contains non-cloneable values (functions, DOM elements), a shallow copy is used instead.'),
+              c(`state: { count: 0, items: [], filter: '' }`),
+              { p: { children: [
+                'Access and modify state on ',
+                ic('this'),
+                ' inside methods, computed, watch, and lifecycle hooks:',
+              ] } },
+              c(`methods: {
+  add() {
+    this.items.push({ name: this.newItem })
+    this.newItem = ''
+  }
+}`),
+            ),
+
+            // --- Computed ---
+            sec('computed', 'Computed',
+              p('Derived getter functions. Not cached — the function re-evaluates every time it is read. Keep them lightweight.'),
+              c(`computed: {
+  filtered() {
+    return this.items.filter(i => i.name.includes(this.filter))
+  },
+  total() {
+    return this.items.length
+  }
+}`),
+              { p: { children: [
+                'Access computed values like state: ',
+                ic('this.total'),
+                ' or in templates via ',
+                ic('$.total'),
+                '.',
+              ] } },
+            ),
+
+            // --- Watch ---
+            sec('watch', 'Watch',
+              p('React to state, prop, or computed changes. The key is a top-level property name to watch.'),
+              c(`watch: {
+  filter(newVal, oldVal) {
+    console.log(\`filter changed: \${oldVal} -> \${newVal}\`)
+  },
+  count(val) {
+    if (val > 100) this.count = 100
+  }
+}`),
+              note('Watch only tracks top-level state/prop names (no nested paths like "a.b"). Comparison uses reference equality (===), so mutating an object/array in-place won\'t trigger the watcher - reassign the whole value instead.'),
+              p('To trigger a watcher on nested changes, reassign the top-level value:'),
+              c(`methods: {
+  updateUserName(name) {
+    // Won't trigger the 'user' watcher:
+    this.user.name = name
+
+    // Will trigger the 'user' watcher:
+    this.user = { ...this.user, name }
+  }
+}`),
+              { p: { children: [
+                'Watchers are best for side effects (API calls, localStorage sync). For derived values that depend on multiple properties, use ',
+                { a: { href: '#computed', text: 'computed' } },
+                ' instead.',
+              ] } },
+            ),
+
+            // --- Methods ---
+            sec('methods', 'Methods',
+              { p: { children: [
+                'Instance methods. The ',
+                ic('this'),
+                ' context gives access to state, computed, store, and other methods. See ',
+                { a: { href: '#context', text: 'Context' } },
+                ' for the full list.',
+              ] } },
+              c(`methods: {
+  add() {
+    if (!this.newText.trim()) return
+    this.items.push({ text: this.newText.trim(), done: false })
+    this.newText = ''
+  },
+  remove(item) {
+    this.items = this.items.filter(i => i !== item)
+  }
+}`),
+              p('Methods are referenced by name in event handlers: { click: \'add\' }'),
+            ),
+
+            // --- Async Methods ---
+            sec('async-methods', 'Async Methods',
+              { p: { children: [
+                'Methods that return a Promise automatically get reactive ',
+                ic('loading'),
+                ' and ',
+                ic('error'),
+                ' state. No extra boilerplate needed.',
+              ] } },
+              c(`state: { users: [] },
+
+methods: {
+  async fetchUsers() {
+    const res = await fetch('/api/users')
+    this.users = await res.json()
+  }
+}
+
+// Automatic reactive state:
+// this.loading.fetchUsers → true while running, false after
+// this.error.fetchUsers   → Error if thrown, null otherwise`),
+              sub('async-template', 'In Templates'),
+              c(`// Show loading state
+{ when: $.loading.fetchUsers, children: [
+  { p: 'Loading...' }
+] }
+
+// Show error
+{ when: $.error.fetchUsers, children: [
+  { p: { class: 'error', text: $.error.fetchUsers } }
+] }
+
+// Show content when not loading
+{ when: $.not.loading.fetchUsers, children: [
+  { ul: { children: [
+    { each: $.users, as: 'user', children: [
+      { li: { text: $.user.name } }
+    ] }
+  ] } }
+] }`),
+              sub('async-behavior', 'Behavior'),
+              { p: { children: [
+                'When a method returns a Promise: ',
+                ic('loading[name]'),
+                ' is set to ',
+                ic('true'),
+                ' (immediately when the method returns a Promise), then ',
+                ic('false'),
+                ' on resolve or reject. On rejection, ',
+                ic('error[name]'),
+                ' is set to the Error object. On the next call, ',
+                ic('error[name]'),
+                ' resets to ',
+                ic('null'),
+                '.',
+              ] } },
+              note('Loading and error entries are created lazily - they only appear once a method first returns a Promise. Accessing them before that returns undefined (falsy), which is equivalent to false for boolean checks.'),
+            ),
+
+            // --- Lifecycle ---
+            sec('lifecycle', 'Lifecycle',
+              tbl(['Hook', 'Signature', 'Description'], [
+                [ic('mount'), ic('mount()'), 'Called after the component is inserted into the DOM'],
+                [ic('unmount'), ic('unmount()'), 'Called when the component is destroyed'],
+              ]),
+              c(`mount() {
+  this.interval = setInterval(() => this.count++, 1000)
+},
+unmount() {
+  clearInterval(this.interval)
+}`),
+              { p: { children: [
+                ic('mount'),
+                ' runs asynchronously via microtask - the component is already in the DOM but the call is deferred. This means DOM measurements (element sizes, scroll positions) are reliable, but ',
+                ic('this.route'),
+                ' may not yet reflect the initial route during the very first mount.',
+              ] } },
+              { p: { children: [
+                'Both hooks have full access to the ',
+                { a: { href: '#context', text: 'this.*' } },
+                ' context including state, store, refs, and methods.',
+              ] } },
+            ),
+
+            // --- View Function ---
+            sec('view-fn', 'View Function',
+              { p: { children: [
+                'The ',
+                ic('view'),
+                ' function receives the ',
+                ic('$'),
+                ' proxy and returns a template object. Called once — reactivity is handled by the refs.',
+              ] } },
+              c(`view: ($) => ({
+  div: { class: 'container', children: [
+    { h1: { text: $.title } },
+    { p: { text: $.description } },
+    { button: { click: 'save', text: 'Save' } },
+  ] }
+})`),
+              p('The returned object describes a single root element. Nest via children arrays. The view function is the only required property in a component definition — everything else is optional.'),
+            ),
+
+            // --- View DSL ($) ---
+            sec('view-dsl', 'View DSL ($)',
+
+              sub('ref-proxy', 'Creating Refs'),
+              { p: { children: [
+                'The ',
+                ic('$'),
+                ' parameter in the view function is a Proxy. Property access creates reactive references (BlokRef) that are resolved at render time.',
+              ] } },
+              c(`view: ($) => {
+  $.count        // ref to this.count (state/prop/computed)
+  $.store.auth.user   // ref to this.store.auth.user
+  $.item.name    // ref to iteration variable 'item', property 'name'
+
+  return { div: { text: $.count } }
+}`),
+              note('Refs are path descriptors, not values. JavaScript operators like !, >, or .filter() do not work on refs - they operate on the proxy object itself, not the resolved value. Use $.not for negation and computed for complex logic.'),
+
+              sub('negation', 'Negation'),
+              { p: { children: [
+                ic('$.not'),
+                ' creates a negated ref. The resolved value is ',
+                ic('!value'),
+                '.',
+              ] } },
+              c(`{ when: $.not.loading, children: [
+  { p: 'Content loaded!' }
+] }
+
+{ button: { disabled: $.not.canSubmit, text: 'Submit' } }
+
+// $.not only works at the start of the path
+$.not.active      // !this.active
+$.not.store.auth.isLoggedIn // !this.store.auth.isLoggedIn
+
+// This does NOT work:
+$.store.not.ready // 'not' becomes a property name, not negation`),
+
+              sub('iter-vars', 'Iteration Variables'),
+              { p: { children: [
+                'Inside an ',
+                ic('each'),
+                ' block, the ',
+                ic('as'),
+                ' name becomes a ref on ',
+                ic('$'),
+                ':',
+              ] } },
+              c(`{ each: $.todos, as: 'todo', children: [
+  { span: { text: $.todo.text } },
+  { input: { type: 'checkbox', model: $.todo.done } },
+] }
+
+// Default iteration variable name is 'item'
+{ each: $.items, children: [
+  { li: { text: $.item } }
+] }`),
+            ),
+
+            // --- Elements ---
+            sec('elements', 'Elements',
+              p('A template object\'s key is the HTML tag name. The value defines its content.'),
+              c(`{ div: 'Hello' }              // <div>Hello</div>
+{ div: { class: 'box' } }     // <div class="box"></div>
+{ br: true }                   // <br>
+{ input: { type: 'text' } }   // <input type="text">
+{ div: 42 }                   // <div>42</div>
+
+// Custom elements / web components work too
+{ 'my-widget': { class: 'fancy', text: $.data } }  // <my-widget class="fancy">...</my-widget>
+{ 'sl-button': { variant: 'primary', text: 'Click' } }  // <sl-button variant="primary">Click</sl-button>`),
+              note('Any lowercase tag name is rendered with document.createElement — standard HTML, SVG, and custom elements all work. Uppercase tags are treated as BlokJS components.'),
+            ),
+
+            // --- Text ---
+            sec('text-bind', 'Text',
+              tbl(['Key', 'Description'], [
+                [ic('text'), 'Text content. Static string or reactive ref.'],
+              ]),
+              c(`// Static text
+{ p: { text: 'Hello World' } }
+
+// Reactive text
+{ h1: { text: $.title } }
+
+// Mixed: static text + reactive child
+{ p: { text: 'Count: ', children: [
+  { span: { text: $.count } }
+] } }
+
+// Or use a computed for cleaner interpolation
+// computed: { countLabel() { return \`Count: \${this.count}\` } }
+{ p: { text: $.countLabel } }
+
+// Shorthand: ref as the element value
+{ span: $.count }   // equivalent to { span: { text: $.count } }`),
+            ),
+
+            // --- HTML Binding ---
+            sec('html-binding', 'HTML',
+              { p: { children: [
+                ic('html'),
+                ' sets raw HTML on the element using innerHTML.',
+              ] } },
+              c(`// Static HTML
+{ div: { html: '<b>Bold</b> and <em>italic</em>' } }
+
+// Reactive HTML
+{ div: { html: $.richContent } }`),
+              note('Warning: html is not sanitized. Never use it with untrusted user input - this can lead to XSS vulnerabilities. Only use html with content you control. For user-provided text, use the text binding instead, which is always safe.'),
+            ),
+
+            // --- Children ---
+            sec('children', 'Children',
+              p('An array of child template objects, rendered in order.'),
+              c(`{ ul: { children: [
+  { li: 'First' },
+  { li: 'Second' },
+  { li: { text: $.third } },
+] } }
+
+// Strings in children become text nodes
+{ p: { children: ['Hello ', { b: 'World' }] } }`),
+            ),
+
+            // --- Classes ---
+            sec('classes', 'Classes',
+              p('Multiple ways to set CSS classes:'),
+              c(`// String
+{ div: { class: 'box large' } }
+
+// Reactive string
+{ div: { class: $.className } }
+
+// Conditional object — keys are class names, values are booleans or refs
+{ li: { class: { active: $.isActive, done: $.todo.done } } }
+
+// Array (mixed string + conditional)
+{ div: { class: ['base', { highlight: $.isNew }] } }
+
+// Kebab-case class names — quote the key
+{ div: { class: { 'is-active': $.isActive, 'has-error': $.hasError } } }`),
+            ),
+
+            // --- Styles ---
+            sec('styles', 'Styles',
+              p('Inline styles as a string or an object. Object keys use camelCase, converted to kebab-case.'),
+              c(`// String
+{ div: { style: 'color: red; font-size: 14px' } }
+
+// Object
+{ div: { style: { color: 'red', fontSize: '14px' } } }
+
+// Reactive values
+{ div: { style: { backgroundColor: $.bgColor, opacity: $.fade } } }`),
+            ),
+
+            // --- Attributes ---
+            sec('attributes', 'Attributes',
+              p('Any key that is not a reserved name or event name is treated as an HTML attribute.'),
+              c(`// Static
+{ input: { type: 'text', placeholder: 'Enter name' } }
+{ img: { src: '/logo.png', alt: 'Logo' } }
+{ a: { href: '/about', target: '_blank', text: 'About' } }
+
+// Reactive — pass a ref directly for single attributes
+{ input: { disabled: $.not.enabled } }  // reactive boolean
+
+// bind groups reactive attributes (optional — direct refs work too)
+{ img: { bind: { src: $.imageUrl, alt: $.title } } }
+
+// Equivalent — refs work directly as attribute values
+{ img: { src: $.imageUrl, alt: $.title } }
+
+// Boolean attributes
+{ button: { disabled: true } }    // <button disabled>
+{ button: { disabled: false } }   // <button> (removed)`),
+              note('Attributes are applied before special keys. This ensures type is set before model on inputs.'),
+              note('URL attributes (href, src, action, formaction) are automatically sanitized — only http(s):, mailto:, tel:, relative paths, and fragment (#) URLs are allowed. javascript: and other dangerous protocols are blocked.'),
+            ),
+
+            // --- Model ---
+            sec('model', 'Model',
+              p('Two-way binding between a form element and a reactive ref.'),
+              c(`// Text input — binds .value, listens to 'input' event
+{ input: { type: 'text', model: $.name } }
+
+// Checkbox — binds .checked, listens to 'change' event
+{ input: { type: 'checkbox', model: $.agreed } }
+
+// Select — binds .value, listens to 'change' event
+{ select: { model: $.category, children: [
+  { option: { value: '', text: 'All' } },
+  { option: { value: 'books', text: 'Books' } },
+  { option: { value: 'music', text: 'Music' } },
+] } }
+
+// Textarea — binds .value, listens to 'input' event
+{ textarea: { model: $.content } }`),
+            ),
+
+            // --- Events ---
+            sec('events', 'Events',
+              p('Events are specified as string values — either a method name or an assignment expression.'),
+              c(`// Call a method (receives the native Event as argument)
+{ button: { click: 'handleClick', text: 'Click' } }
+
+// Inline state assignment
+{ button: { click: 'editing = true', text: 'Edit' } }
+{ button: { click: 'count = 0', text: 'Reset' } }
+
+// Form submit (e.preventDefault() is called automatically)
+{ form: { submit: 'save', children: [...] } }
+
+// Pass arguments to methods
+{ button: { click: 'remove(item)', text: 'x' } }
+{ button: { click: 'select(item.id)', text: 'Go' } }
+{ button: { click: 'update(item, true)', text: 'Save' } }
+
+// Multiple events via 'on' object
+{ input: { on: { focus: 'onFocus', blur: 'onBlur' } } }`),
+              sub('event-names', 'Recognized Event Names'),
+              p('These events can be used as direct keys on element options:'),
+              c(`click, dblclick, mousedown, mouseup, mousemove,
+mouseenter, mouseleave, keydown, keyup, keypress,
+input, change, submit, focus, blur, scroll, resize,
+touchstart, touchend, touchmove,
+dragstart, dragend, dragover, dragleave, drop`),
+              { p: { children: [
+                'For other events, use the ',
+                ic('on'),
+                ' object.',
+              ] } },
+              sub('argument-passing', 'Argument Passing'),
+              p('Pass arguments to method calls using function-call syntax. Arguments are resolved at event time.'),
+              c(`// Iteration variable
+{ each: $.items, as: 'item', key: 'id', children: [
+  { button: { click: 'remove(item)', text: 'x' } }
+]}
+
+// Nested path
+{ button: { click: 'select(item.id)' } }
+
+// Literals: strings, numbers, booleans, null
+{ button: { click: "log('clicked')" } }
+{ button: { click: 'setPage(1)' } }
+{ button: { click: 'toggle(true)' } }
+
+// Multiple arguments
+{ button: { click: 'update(item, true, 42)' } }`),
+              note('When arguments are specified, only those arguments are passed. When no arguments are given (e.g. click: \'save\'), the native Event object is passed instead.'),
+              sub('assignment-values', 'Assignment Expressions'),
+              p('Supported value types in assignment expressions:'),
+              c(`'count = 0'        // number
+'active = true'    // boolean
+'active = false'   // boolean
+'name = null'      // null
+"name = ''"        // empty string
+"name = 'hello'"   // string`),
+              note('The left side must be a single top-level state name (no dots). Assignments write to local state only — you cannot assign to store or nested properties this way. For those, use a method.'),
+              sub('event-modifiers', 'Event Modifiers'),
+              p('Use object syntax or dot-separated modifiers to automatically call preventDefault() or stopPropagation():'),
+              c(`// Object syntax (recommended)
+{ a: { click: { handler: 'navigate', prevent: true }, text: 'Go' } }
+{ div: { click: { handler: 'handler', stop: true } } }
+{ div: { click: { handler: 'handler', prevent: true, stop: true } } }
+{ div: { click: { stop: true } } }  // modifier-only, no handler
+
+// String syntax (also supported)
+{ a: { 'click.prevent': 'navigate', text: 'Go' } }
+{ div: { 'click.stop': 'handler' } }
+{ div: { 'click.prevent.stop': 'handler' } }
+
+// Works with the on object too
+{ input: { on: { 'focus.stop': 'onFocus' } } }`),
+              tbl(['Modifier', 'Effect'], [
+                [ic('prevent'), 'Calls e.preventDefault() before the handler runs'],
+                [ic('stop'), 'Calls e.stopPropagation() before the handler runs'],
+              ]),
+              note('submit events always call e.preventDefault() automatically, even without the prevent modifier.'),
+              note('link: true strips the leading # from href (if present) before navigating.'),
+            ),
+
+            // --- Conditionals ---
+            sec('conditionals', 'Conditionals',
+              sub('when-block', 'Standalone when'),
+              { p: { children: [
+                'A ',
+                ic('when'),
+                ' block renders its children only when the condition is truthy. Children are created and destroyed reactively.',
+              ] } },
+              c(`{ when: $.isLoggedIn, children: [
+  { p: 'Welcome back!' },
+  { button: { click: 'logout', text: 'Log out' } },
+] }
+
+{ when: $.not.isLoggedIn, children: [
+  { a: { href: '/login', text: 'Please log in' } },
+] }`),
+
+              sub('when-element', 'Conditional Element'),
+              { p: { children: [
+                'Add ',
+                ic('when'),
+                ' inside an element\'s options to conditionally render that element:',
+              ] } },
+              c(`{ div: { when: $.showDetails, class: 'details', children: [
+  { p: { text: $.description } },
+] } }`),
+              p('The element and all its children are created/destroyed based on the condition.'),
+
+              sub('when-computed', 'Complex Conditions'),
+              { p: { children: [
+                ic('when'),
+                ' only accepts refs (',
+                ic('$'),
+                ' paths) — not JavaScript expressions. You cannot use operators like ',
+                ic('!'),
+                ', ',
+                ic('>'),
+                ', or method calls on refs.',
+              ] } },
+              c(`// These do NOT work:
+{ when: !$.loading, ... }           // always false (! on a proxy object)
+{ when: $.count > 10, ... }         // compares proxy > 10, not the value
+
+// These DO work:
+{ when: $.items.length, ... }       // resolves to the array's length (truthy if non-empty)
+
+// Use $.not for negation:
+{ when: $.not.loading, ... }
+
+// For complex conditions, use a computed:
+computed: {
+  hasLongNames() {
+    return this.users.filter(a => a.name.length > 10).length > 10
+  }
+}
+// Then in the template:
+{ when: $.hasLongNames, children: [...] }`),
+            ),
+
+            // --- Loops ---
+            sec('loops', 'Loops',
+              { p: { children: [
+                ic('each'),
+                ' iterates over a reactive array. Use ',
+                ic('as'),
+                ' to name the iteration variable (default: ',
+                ic("'item'"),
+                '). Use ',
+                ic('key'),
+                ' for stable identity.',
+              ] } },
+              c(`{ each: $.todos, as: 'todo', key: 'id', children: [
+  { li: { children: [
+    { input: { type: 'checkbox', model: $.todo.done } },
+    { span: { text: $.todo.text } },
+  ] } }
+] }
+
+// Without key (uses index)
+{ each: $.items, children: [
+  { li: { text: $.item } }
+] }
+
+// Nested iteration
+{ each: $.groups, as: 'group', children: [
+  { div: { children: [
+    { h3: { text: $.group.name } },
+    { each: $.group.items, as: 'item', children: [
+      { span: { text: $.item } },
+    ] },
+  ] } }
+] }`),
+              note('When the array changes, BlokJS compares length and keys in order. If both match, the DOM is kept as-is (item properties are still reactive within existing iterations). Otherwise, all items are torn down and re-rendered.'),
+            ),
+
+            // --- Components ---
+            sec('components', 'Components',
+              p('Use registered component names (uppercase) as tag keys. Pass props and listen to events.'),
+              c(`// Pass props (static values or reactive refs)
+{ UserCard: { name: $.user.name, email: $.user.email } }
+
+// Listen to child events with on_ prefix
+{ TodoItem: { todo: $.item, on_remove: 'handleRemove' } }
+
+// Parent method 'handleRemove' is called when child does this.emit('remove', payload)`),
+              sub('component-events', 'Parent-Child Events'),
+              { p: { children: [
+                'Prefix event names with ',
+                ic('on_'),
+                ' when using a component. The child emits with ',
+                ic("this.emit('eventName', payload)"),
+                ' and the parent\'s method is called with the payload.',
+              ] } },
+              c(`// Child component
+blok.component('ColorPicker', {
+  methods: {
+    select(e) {
+      this.emit('pick', e.target.value)
+    }
+  },
+  view: ($) => ({ input: { type: 'color', change: 'select' } })
+})
+
+// Parent
+{ ColorPicker: { on_pick: 'handleColor' } }
+
+// Parent method
+methods: {
+  handleColor(color) {
+    this.store.theme = color
+  }
+}`),
+            ),
+
+            // --- Slots ---
+            sec('slots', 'Slots',
+              p('Components can render children passed by their parent using the slot mechanism.'),
+              c(`// Define a component with a slot
+blok.component('Card', {
+  props: ['title'],
+  view: ($) => ({
+    div: { class: 'card', children: [
+      { h3: { text: $.title } },
+      { div: { class: 'card-body', children: { slot: true } } },
+    ] }
+  })
+})
+
+// Use with children (slotted content)
+{ Card: { title: 'My Card', children: [
+  { p: 'This content goes into the slot.' },
+  { button: { text: 'Action' } },
+] } }`),
+              { p: { children: [
+                'Use ',
+                ic('children: { slot: true }'),
+                ' to mark where slot content is inserted. This is the only case where ',
+                ic('children'),
+                ' is not an array.',
+              ] } },
+              note('Slot content is defined in the parent\'s view but resolved in the child component\'s scope. This means $ refs like $.parentState will look up parentState on the child, not the parent. Pass data explicitly via props or the store instead.'),
+            ),
+
+            // --- Refs ---
+            sec('refs', 'Refs',
+              p('Store a reference to a DOM element for direct access in methods.'),
+              c(`view: ($) => ({
+  div: { children: [
+    { input: { ref: 'nameInput', type: 'text', model: $.name } },
+    { button: { click: 'focusInput', text: 'Focus' } },
+  ] }
+})
+
+// Access the element
+methods: {
+  focusInput() {
+    this.refs.nameInput.focus()
+  }
+}`),
+            ),
+
+            // --- Router ---
+            sec('router', 'Router',
+              p('Client-side routing with path matching, params, guards, and programmatic navigation.'),
+
+              sub('route-config', 'Configuration'),
+              c(`blok.mount('#app', {
+  routes: [
+    { path: '/', component: 'Home' },
+    { path: '/users', component: 'UserList' },
+    { path: '/users/:id', component: 'UserDetail' },
+    { path: '*', component: 'NotFound' },
+  ],
+  view: ($) => ({
+    div: { children: [
+      { div: { route: true } },
+    ] }
+  })
+})`),
+              tbl(['RouteConfig', 'Type', 'Description'], [
+                [ic('path'), ic('string'), 'URL pattern. Use :name for params. Use * for catch-all.'],
+                [ic('component'), ic('string'), 'Name of a registered component to render.'],
+                [ic('guard'), ic('string'), 'Name of a guard function to check before entering.'],
+              ]),
+
+              sub('route-outlet', 'Route Outlet'),
+              { p: { children: [
+                'Set ',
+                ic('route: true'),
+                ' on any element to make it a route outlet - a container that renders the component matched by the current route.',
+              ] } },
+              c(`view: ($) => ({
+  div: { children: [
+    { nav: { children: [
+      { a: { href: '/', link: true, text: 'Home' } },
+      { a: { href: '/about', link: true, text: 'About' } },
+    ] } },
+    { div: { route: true } },
+  ] }
+})`),
+              p('When the route changes, the previous component is destroyed and the new one is mounted.'),
+
+              sub('route-links', 'Route Links'),
+              { p: { children: [
+                'Add ',
+                ic('link: true'),
+                ' to an ',
+                ic('<a>'),
+                ' element to enable client-side navigation. Click is intercepted, ',
+                ic('e.preventDefault()'),
+                ' is called, and the router navigates to the href. Only works on ',
+                ic('<a>'),
+                ' elements - silently ignored on other tags.',
+              ] } },
+              c(`{ a: { href: '/users/42', link: true, text: 'View User' } }
+
+// Dynamic href
+{ a: { bind: { href: $.profileUrl }, link: true, text: 'Profile' } }`),
+
+              sub('route-params', 'Params & Query'),
+              p('Route parameters are extracted from the URL and available on this.route.'),
+              c(`// Route: { path: '/users/:id', component: 'UserDetail' }
+// URL: /users/42
+
+// In the component:
+computed: {
+  user() {
+    const id = Number(this.route.params.id)  // '42'
+    return this.store.users.find(u => u.id === id)
+  }
+}
+
+// Query string: /search?q=hello
+// this.route.query.q === 'hello'`),
+              { p: { children: [
+                ic('this.route'),
+                ' is reactive - computed values and bindings that read it update when the route changes.',
+              ] } },
+
+              sub('route-guards', 'Guards'),
+              p('Guard functions run before a route is entered. Return true to allow, false to block, or a string to redirect.'),
+              c(`blok.mount('#app', {
+  routes: [
+    { path: '/admin', component: 'Admin', guard: 'requireAuth' },
+    { path: '/login', component: 'Login' },
+  ],
+  guards: {
+    requireAuth(to, from) {
+      if (!this.store.auth.user) return '/login'
+      return true
+    }
+  },
+  // ...
+})`),
+              { p: { children: [
+                'Guards have the same ',
+                ic('this'),
+                ' context as the root component. Both ',
+                ic('to'),
+                ' and ',
+                ic('from'),
+                ' are ',
+                ic('{ path, params, query }'),
+                ' objects matching the shape of ',
+                ic('this.route'),
+                '.',
+              ] } },
+
+              sub('route-modes', 'Modes'),
+              tbl(['Mode', 'Behavior'], [
+                [ic("'hash'"), 'Uses URL hash (#/path). Works everywhere including file:// URLs.'],
+                [ic("'history'"), 'Uses History API (pushState). Requires server configuration.'],
+                [ic("'auto'"), 'Uses hash for file:// protocol, history otherwise. This is the default.'],
+              ]),
+              note('The initial route is resolved asynchronously (via microtask) so that app.root is set before guards run. During the mount() lifecycle hook, this.route.path may still be "/" until the microtask fires.'),
+
+              sub('programmatic-nav', 'Programmatic Navigation'),
+              c(`// Navigate to a path
+this.navigate('/users/42')
+
+// Go back/forward in history
+this.navigate(-1)   // history.go(-1)
+this.navigate(1)    // history.go(1)`),
+            ),
+
+            // --- Reactivity ---
+            sec('reactivity', 'Reactivity',
+              p('BlokJS uses ES Proxy to track property reads inside effects (bindings, computed, watchers). When a tracked property is written, all dependent effects re-run.'),
+              c(`// This computed tracks this.items and this.filter
+computed: {
+  filtered() {
+    return this.items.filter(i => i.name.includes(this.filter))
+  }
+}
+// When either items or filter changes, filtered re-evaluates
+// and any UI bound to $.filtered updates`),
+              p('Nested objects are lazily wrapped — accessing a.b.c creates proxies as needed.'),
+            ),
+
+            // --- Array Mutations ---
+            sec('array-mutations', 'Array Mutations',
+              p('These array methods are intercepted and trigger reactive updates:'),
+              c(`push, pop, shift, unshift, splice, sort, reverse`),
+              c(`this.todos.push({ text: 'New', done: false })  // triggers update
+this.todos.splice(2, 1)                        // triggers update
+this.todos.sort((a, b) => a.text.localeCompare(b.text))  // triggers update
+
+// Direct assignment also works
+this.items = this.items.filter(i => !i.done)   // triggers update`),
+            ),
+
+            // --- Batching ---
+            sec('batching', 'Batching',
+              p('Multiple synchronous state changes are batched into a single DOM update via the microtask queue.'),
+              c(`methods: {
+  reset() {
+    this.name = ''
+    this.count = 0
+    this.items = []
+    // All three changes result in ONE DOM update
+  }
+}`),
+              p('Effects are collected into a Set and flushed in a single microtask, preventing redundant renders.'),
+            ),
+
+            // --- Full Example ---
+            sec('full-example', 'Full Example: Task Board',
+              p('The Task Board example is a single HTML file that exercises every BlokJS feature — stores, components, routing, guards, slots, async methods, and more. Use it as a reference for how everything fits together.'),
+              sub('full-example-arch', 'Architecture'),
+              c(`// Stores
+blok.store('auth', { state, computed, methods: { async login(), logout() } })
+blok.store('board', { state, computed, methods: { async loadTasks(), addTask(), removeTask(), moveTask(), updateTask() } })
+
+// Components (7)
+Login        — form with model, ref for focus, async submit, navigate()
+Board        — search with watch, each + nested loop, modal (when), store async, drag-and-drop
+TaskColumn   — props, computed, style binding, re-emits child events, empty state (when), drag-and-drop zone
+TaskCard     — class array (string + ref + conditional), bind: { href }, link, emits, draggable
+CardWrapper  — props, style binding, { slot: true }
+TaskDetail   — route :id param, html binding, model on select/textarea/checkbox, editing toggle
+NotFound     — navigate(-1) back
+
+// Routes
+/login            — Login
+/board            — Board (guarded)
+/task/:id         — TaskDetail (guarded)
+*                 — NotFound`),
+              sub('full-example-features', 'Feature Coverage'),
+              tbl(['Feature', 'Where'], [
+                [ic('blok.mount / component / store'), 'Root + 7 components + 2 stores'],
+                [ic('props'), 'TaskColumn, TaskCard, CardWrapper'],
+                [ic('state'), 'Login, Board, TaskDetail'],
+                [ic('computed'), 'TaskCard, TaskColumn, TaskDetail, both stores'],
+                [ic('watch'), 'Board (search \u2192 store sync)'],
+                [ic('methods (sync + async)'), 'All components, both stores'],
+                [ic('mount / unmount'), 'Root (nav redirect + cleanup), Login (focus), Board (load + cleanup)'],
+                [ic('text / html'), 'Everywhere / TaskDetail description'],
+                [ic('class (string, object, array)'), 'TaskCard, TaskColumn'],
+                [ic('style (object)'), 'TaskColumn header, CardWrapper'],
+                [ic('model (input, select, textarea, checkbox)'), 'Login, Board, TaskDetail'],
+                [ic('events (click, submit, drag*)'), 'Forms, buttons, TaskCard drag, TaskColumn drop zone'],
+                [ic('event modifiers (stop, prevent)'), 'Board modal (stop), TaskColumn drag (prevent), TaskDetail (prevent)'],
+                [ic('when + $.not'), 'Loading, modal, auth nav, empty states'],
+                [ic('each + key + nested'), 'Columns \u2192 Tasks'],
+                [ic('components + on_ events'), 'TaskCard \u2192 TaskColumn \u2192 Board'],
+                [ic('slots'), 'CardWrapper wraps heading in Board'],
+                [ic('ref (DOM)'), 'Login input focus'],
+                [ic('bind: {}'), 'TaskCard dynamic href'],
+                [ic('routing + :params + guards'), '4 routes, requireAuth guard, /task/:id'],
+                [ic('link: true + route: true'), 'Nav links, route outlet'],
+                [ic('multiple stores'), 'auth + board'],
+                [ic('async loading/error'), 'Login submit, Board loadTasks'],
+                [ic('programmatic navigation'), 'Login\u2192/board, TaskDetail back, logout\u2192/login'],
+                [ic('assignment expressions'), 'showEdit = true, showModal = false'],
+                [ic('negated refs ($.not)'), 'Auth nav, loading states'],
+              ]),
+              { p: { children: [
+                '\u2192 ',
+                { a: { href: 'https://github.com/maleta/blokjs/blob/main/examples/task-board.html', text: 'Open the Task Board example' } },
+              ] } },
+            ),
+
+            // --- Validation ---
+            sec('validate-api', 'Validation API',
+              p('BlokJS includes a validate object with pure functions that check definitions and return an array of warning strings. These run automatically via console.warn in dev builds, but the validate API lets you capture warnings programmatically.'),
+              note('Validation is only available in dev builds (blokjs.js, blokjs.esm.js). Minified builds strip all validation code.'),
+
+              sub('validate-component', 'validate.component(name, def)'),
+              p('Validates a component definition. Returns warnings for missing view, unknown keys, state conflicts, and type errors.'),
+              c(`const warnings = blok.validate.component('todo-item', {
+  props: ['label'],
+  // missing view
+})
+// ['Component "todo-item" is missing the required "view" function.']`),
+
+              sub('validate-mount', 'validate.mount(opts)'),
+              p('Validates mount options. Same checks as component, plus router-specific validation.'),
+              c(`const warnings = blok.validate.mount({
+  state: { count: 0 },
+  // missing view
+})
+// ['Mount options missing the required "view" function.']`),
+
+              sub('validate-store', 'validate.store(name, def)'),
+              p('Validates a store definition. Checks for unknown keys.'),
+              c(`const warnings = blok.validate.store('auth', {
+  state: { user: null },
+  foo: 1,
+})
+// ['Unknown property "foo" in store "auth". Valid: state, computed, methods']`),
+
+              sub('validate-template', 'validate.template(tag, opts, methods)'),
+              p('Validates a view template node. Catches typos in template keys and references to undefined event handler methods. Pass the methods object (or undefined) as the third argument.'),
+              c(`const warnings = blok.validate.template('button', {
+  click: 'save',
+  clss: 'btn',
+}, { save() {} })
+// ['<button> has "clss" - did you mean "class"?']`),
+            ),
+
+            sec('validate-checks', 'What Gets Caught',
+              p('The validator catches the following issues:'),
+              { ul: { style: 'font-size:14px; line-height:1.8; margin:10px 0 16px 20px; color:#333', children: [
+                { li: 'Missing or non-function view' },
+                { li: 'Unknown definition keys (with typo suggestions)' },
+                { li: 'State keys conflicting with reserved names (store, route, refs, el, etc.)' },
+                { li: 'Duplicate keys across state, computed, and methods' },
+                { li: 'Non-function mount, unmount, methods, computed, or watch entries' },
+                { li: 'Event handlers referencing undefined methods' },
+                { li: 'Template key typos (Levenshtein-based suggestions)' },
+                { li: 'Invalid router mode values' },
+              ] } },
+              note('All validate functions are pure - they return string arrays and produce no side effects. The runtime validators (called automatically by blok.component, blok.mount, blok.store) use console.warn internally.'),
+            ),
+
+          ] } },
+        ] }
+      })
+    })
+  </script>
+</body>
+</html>

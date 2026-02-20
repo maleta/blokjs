@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>BlokJS Task Board</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f0f2f5; color: #1a1a1a; min-height: 100vh; }
+
+    /* Shell & Nav */
+    .shell { max-width: 1100px; margin: 0 auto; min-height: 100vh; }
+    .topnav { display: flex; align-items: center; gap: 16px; padding: 12px 24px; background: #fff; border-bottom: 1px solid #e5e5e5; }
+    .topnav .brand { font-weight: 700; font-size: 16px; color: #f59e0b; text-decoration: none; }
+    .topnav a { color: #f59e0b; text-decoration: none; font-size: 14px; }
+    .topnav a:hover { text-decoration: underline; }
+    .topnav .spacer { flex: 1; }
+    .topnav .user-info { font-size: 13px; color: #666; }
+
+    /* Login */
+    .login-page { display: flex; align-items: center; justify-content: center; min-height: 80vh; }
+    .login-card { background: #fff; border-radius: 8px; padding: 32px; width: 360px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    .login-card h2 { margin-bottom: 20px; font-size: 20px; }
+    .login-card label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #374151; }
+    .login-card input { width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; margin-bottom: 12px; }
+    .login-card button { width: 100%; padding: 10px; background: #f59e0b; color: #fff; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; font-weight: 600; }
+    .login-card button:hover { background: #d97706; }
+    .login-card button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .login-card .error { color: #dc2626; font-size: 13px; margin-bottom: 10px; }
+    .login-card .loading-text { color: #6b7280; font-size: 13px; margin-bottom: 10px; }
+
+    /* Board */
+    .board-page { padding: 20px 24px; }
+    .board-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+    .board-header h1 { font-size: 20px; }
+    .board-header .spacer { flex: 1; }
+    .board-header input { padding: 7px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; min-width: 200px; }
+    .board-header button { padding: 7px 16px; background: #f59e0b; color: #fff; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 600; }
+    .board-header button:hover { background: #d97706; }
+
+    .columns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    @media (max-width: 700px) { .columns { grid-template-columns: 1fr; } }
+
+    .column { background: #fff; border-radius: 8px; padding: 0; min-height: 200px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); overflow: hidden; }
+    .column-header { padding: 12px 16px; font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 2px solid; }
+    .column-body { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .column-empty { padding: 24px; text-align: center; color: #9ca3af; font-size: 13px; font-style: italic; }
+
+    /* Card Wrapper */
+    .card-wrapper { border-radius: 6px; padding: 2px; }
+
+    /* Task Card */
+    .task-card { background: #fff; border: 1px solid #e5e5e5; border-radius: 6px; padding: 10px 12px; cursor: pointer; transition: box-shadow 0.15s; }
+    .task-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .task-card.done { opacity: 0.6; }
+    .task-card .task-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; text-decoration: none; color: inherit; display: block; }
+    .task-card .task-title:hover { color: #f59e0b; }
+    .task-card .task-meta { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #9ca3af; }
+    .task-card .priority-badge { display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 10px; font-weight: 600; text-transform: uppercase; }
+    .task-card .priority-high { background: #fee2e2; color: #991b1b; }
+    .task-card .priority-medium { background: #fef3c7; color: #92400e; }
+    .task-card .priority-low { background: #d1fae5; color: #065f46; }
+    .task-card .move-btns { display: flex; gap: 2px; margin-top: 6px; }
+    .task-card .move-btns button { padding: 2px 8px; font-size: 11px; background: #f3f4f6; border: 1px solid #e5e5e5; border-radius: 4px; cursor: pointer; color: #374151; }
+    .task-card .move-btns button:hover { background: #e5e7eb; }
+
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; z-index: 10; }
+    .modal { background: #fff; border-radius: 8px; padding: 24px; width: 400px; max-width: 90vw; box-shadow: 0 8px 30px rgba(0,0,0,0.15); }
+    .modal h3 { margin-bottom: 16px; font-size: 16px; }
+    .modal label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #374151; }
+    .modal input, .modal select, .modal textarea { width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; margin-bottom: 12px; font-family: inherit; }
+    .modal textarea { min-height: 60px; resize: vertical; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .modal-actions button { padding: 8px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 600; border: 1px solid #d1d5db; background: #fff; }
+    .modal-actions .btn-primary { background: #f59e0b; color: #fff; border-color: #f59e0b; }
+    .modal-actions .btn-primary:hover { background: #d97706; }
+
+    /* Task Detail */
+    .detail-page { padding: 20px 24px; max-width: 640px; }
+    .detail-page .back { display: inline-flex; align-items: center; gap: 4px; color: #f59e0b; text-decoration: none; font-size: 14px; margin-bottom: 16px; cursor: pointer; background: none; border: none; font-family: inherit; }
+    .detail-page .back:hover { text-decoration: underline; }
+    .detail-page h2 { font-size: 20px; margin-bottom: 4px; }
+    .detail-page .task-description { margin: 12px 0; padding: 12px; background: #f9fafb; border-radius: 6px; font-size: 14px; line-height: 1.6; }
+    .detail-page .edit-section { margin-top: 20px; }
+    .detail-page .edit-section label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #374151; }
+    .detail-page .edit-section select,
+    .detail-page .edit-section textarea,
+    .detail-page .edit-section input[type="text"] { width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; margin-bottom: 12px; font-family: inherit; }
+    .detail-page .edit-section textarea { min-height: 80px; resize: vertical; }
+    .detail-page .checkbox-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 14px; }
+    .detail-page .checkbox-row input { width: auto; margin: 0; }
+    .detail-page .meta { font-size: 13px; color: #6b7280; margin: 8px 0; }
+
+    /* Not Found */
+    .not-found { text-align: center; padding: 80px 24px; color: #6b7280; }
+    .not-found h2 { margin-bottom: 8px; color: #1a1a1a; }
+
+    .board-loading { text-align: center; padding: 60px; color: #6b7280; }
+
+    /* Drag and drop */
+    .task-card.dragging { opacity: 0.4; }
+    .column-body.drag-over { background: #f0f4ff; outline: 2px dashed #6366f1; outline-offset: -2px; border-radius: 0 0 8px 8px; }
+  </style>
+  <script src="../packages/blokjs/dist/blokjs.min.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    // ── Seed data ──
+    const SEED_TASKS = [
+      { id: 1, title: 'Design wireframes', status: 'done', priority: 'high', done: true, assignee: 'Alice', description: '<p>Create <b>low-fidelity wireframes</b> for the new dashboard layout.</p><ul><li>Header nav</li><li>Sidebar</li><li>Main content area</li></ul>' },
+      { id: 2, title: 'Set up CI pipeline', status: 'in-progress', priority: 'high', done: false, assignee: 'Bob', description: '<p>Configure GitHub Actions for <em>build + test + deploy</em>.</p>' },
+      { id: 3, title: 'Write API docs', status: 'todo', priority: 'medium', done: false, assignee: 'Charlie', description: '<p>Document all REST endpoints with request/response examples.</p>' },
+      { id: 4, title: 'Fix login redirect bug', status: 'in-progress', priority: 'high', done: false, assignee: 'Alice', description: '<p>After login the user should be redirected to <code>/board</code>, not <code>/</code>.</p>' },
+      { id: 5, title: 'Add dark mode toggle', status: 'todo', priority: 'low', done: false, assignee: 'Bob', description: '<p>Implement a theme toggle with <b>localStorage</b> persistence.</p>' },
+      { id: 6, title: 'Refactor store layer', status: 'todo', priority: 'medium', done: false, assignee: 'Charlie', description: '<p>Split the monolithic store into domain modules.</p>' },
+    ]
+
+    const COLUMNS_DEF = [
+      { key: 'todo', label: 'To Do', color: '#6366f1' },
+      { key: 'in-progress', label: 'In Progress', color: '#f59e0b' },
+      { key: 'done', label: 'Done', color: '#10b981' },
+    ]
+
+    let nextId = 100
+
+    // ── Stores ──
+
+    blok.store('auth', {
+      state: { user: null },
+
+      computed: {
+        isLoggedIn() { return this.user !== null },
+      },
+
+      methods: {
+        async login(name) {
+          await new Promise(r => setTimeout(r, 600))
+          if (!name || !name.trim()) throw new Error('Name is required')
+          this.user = { name: name.trim() }
+        },
+        logout() {
+          this.user = null
+        },
+      },
+    })
+
+    blok.store('board', {
+      state: { tasks: [], search: '' },
+
+      computed: {
+        columns() {
+          const q = this.search.toLowerCase()
+          return COLUMNS_DEF.map(col => ({
+            ...col,
+            tasks: this.tasks.filter(t =>
+              t.status === col.key && (!q || t.title.toLowerCase().includes(q) || t.assignee.toLowerCase().includes(q))
+            ),
+          }))
+        },
+      },
+
+      methods: {
+        async loadTasks() {
+          if (this.tasks.length > 0) return
+          await new Promise(r => setTimeout(r, 400))
+          this.tasks = SEED_TASKS.map(t => ({ ...t }))
+        },
+        addTask(task) {
+          this.tasks.push({ ...task, id: ++nextId })
+        },
+        removeTask(id) {
+          this.tasks = this.tasks.filter(t => t.id !== id)
+        },
+        updateTask(id, updates) {
+          const t = this.tasks.find(t => t.id === id)
+          if (!t) return
+          Object.assign(t, updates)
+          if ('status' in updates) t.done = updates.status === 'done'
+          this.tasks = [...this.tasks]
+        },
+        moveTask(id, newStatus) {
+          const t = this.tasks.find(t => t.id === id)
+          if (t) {
+            t.status = newStatus
+            t.done = newStatus === 'done'
+            // trigger reactivity via reassignment
+            this.tasks = [...this.tasks]
+          }
+        },
+      },
+    })
+
+    // ── Components ──
+
+    // 1. CardWrapper — slot demo
+    blok.component('CardWrapper', {
+      props: ['accent'],
+
+      view: ($) => ({
+        div: {
+          class: 'card-wrapper',
+          style: { borderLeft: '3px solid', borderLeftColor: $.accent },
+          children: { slot: true },
+        },
+      }),
+    })
+
+    // 2. TaskCard
+    blok.component('TaskCard', {
+      props: ['task', 'draggingTaskId'],
+
+      computed: {
+        priorityClass() {
+          return 'priority-' + this.task.priority
+        },
+        detailHref() {
+          return '/task/' + this.task.id
+        },
+        isDragging() {
+          return this.draggingTaskId === this.task.id
+        },
+      },
+
+      methods: {
+        select() { this.emit('select', this.task) },
+        moveLeft() { this.emit('move', { id: this.task.id, dir: -1 }) },
+        moveRight() { this.emit('move', { id: this.task.id, dir: 1 }) },
+        handleDragStart(e) {
+          e.dataTransfer.setData('text/plain', String(this.task.id))
+          e.dataTransfer.effectAllowed = 'move'
+          this.emit('dragstart', { taskId: this.task.id })
+        },
+        handleDragEnd() {
+          this.emit('dragend')
+        },
+      },
+
+      view: ($) => ({
+        div: {
+          class: ['task-card', $.priorityClass, { done: $.task.done, dragging: $.isDragging }],
+          draggable: 'true',
+          dragstart: 'handleDragStart',
+          dragend: 'handleDragEnd',
+          children: [
+            { a: { class: 'task-title', bind: { href: $.detailHref }, link: true, text: $.task.title } },
+            { div: { class: 'task-meta', children: [
+              { span: { class: ['priority-badge', $.priorityClass], text: $.task.priority } },
+              { span: { text: $.task.assignee } },
+            ] } },
+            { div: { class: 'move-btns', children: [
+              { button: { click: 'moveLeft', text: '\u2190' } },
+              { button: { click: 'moveRight', text: '\u2192' } },
+            ] } },
+          ],
+        },
+      }),
+    })
+
+    // 3. TaskColumn
+    blok.component('TaskColumn', {
+      props: ['column', 'draggingTaskId', 'dragOverColumn'],
+
+      computed: {
+        hasTasks() { return this.column.tasks.length > 0 },
+        headerStyle() {
+          return { borderBottomColor: this.column.color, color: this.column.color }
+        },
+        isDragOver() {
+          return this.dragOverColumn === this.column.key
+        },
+      },
+
+      methods: {
+        onSelect(task) { this.emit('select', task) },
+        onMove(payload) { this.emit('move', payload) },
+        onCardDragStart(payload) { this.emit('dragstart', payload) },
+        onCardDragEnd() { this.emit('dragend') },
+        handleDragOver() {
+          this.emit('dragover', this.column.key)
+        },
+        handleDragLeave() {
+          this.emit('dragleave')
+        },
+        handleDrop(e) {
+          const taskId = Number(e.dataTransfer.getData('text/plain'))
+          if (taskId) this.emit('drop', { taskId, targetStatus: this.column.key })
+        },
+      },
+
+      view: ($) => ({
+        div: {
+          class: 'column',
+          children: [
+            { div: { class: 'column-header', style: $.headerStyle, text: $.column.label } },
+            { div: { class: ['column-body', { 'drag-over': $.isDragOver }], dragover: { handler: 'handleDragOver', prevent: true }, dragleave: 'handleDragLeave', drop: { handler: 'handleDrop', prevent: true }, children: [
+              { when: $.not.hasTasks, children: [
+                { div: { class: 'column-empty', text: 'No tasks' } },
+              ] },
+              { each: $.column.tasks, as: 'task', key: 'id', children: [
+                { div: { class: 'card-wrapper', style: { borderLeft: '3px solid', borderLeftColor: $.column.color }, children: [
+                  { TaskCard: { task: $.task, draggingTaskId: $.draggingTaskId, on_select: 'onSelect', on_move: 'onMove', on_dragstart: 'onCardDragStart', on_dragend: 'onCardDragEnd' } },
+                ] } },
+              ] },
+            ] } },
+          ],
+        },
+      }),
+    })
+
+    // 4. Login
+    blok.component('Login', {
+      state: { name: '' },
+
+      methods: {
+        async submit() {
+          await this.store.auth.login(this.name)
+          this.navigate('/board')
+        },
+      },
+
+      mount() {
+        this.refs.nameInput.focus()
+      },
+
+      view: ($) => ({
+        div: {
+          class: 'login-page',
+          children: [
+            { div: { class: 'login-card', children: [
+              { h2: 'Sign in to Task Board' },
+              { when: $.error.submit, children: [
+                { div: { class: 'error', text: $.error.submit } },
+              ] },
+              { when: $.loading.submit, children: [
+                { div: { class: 'loading-text', text: 'Signing in...' } },
+              ] },
+              { form: { submit: 'submit', children: [
+                { label: { for: 'name', text: 'Your name' } },
+                { input: { ref: 'nameInput', id: 'name', type: 'text', model: $.name, placeholder: 'e.g. Alice' } },
+                { button: { type: 'submit', disabled: $.loading.submit, text: 'Sign in' } },
+              ] } },
+            ] } },
+          ],
+        },
+      }),
+    })
+
+    // 5. Board
+    blok.component('Board', {
+      state: { search: '', showModal: false, newTitle: '', newStatus: 'todo', newPriority: 'medium', newAssignee: '', newDescription: '', draggingTaskId: null, dragOverColumn: '' },
+
+      watch: {
+        search(val) {
+          this.store.board.search = val
+        },
+      },
+
+      computed: {
+        columns() { return this.store.board.columns },
+      },
+
+      methods: {
+        onSelect(task) {
+          this.navigate('/task/' + task.id)
+        },
+        onMove(payload) {
+          const order = ['todo', 'in-progress', 'done']
+          const task = this.store.board.tasks.find(t => t.id === payload.id)
+          if (!task) return
+          const idx = order.indexOf(task.status)
+          const newIdx = idx + payload.dir
+          if (newIdx < 0 || newIdx >= order.length) return
+          this.store.board.moveTask(payload.id, order[newIdx])
+        },
+        onDragStart(payload) {
+          this.draggingTaskId = payload.taskId
+        },
+        onDragEnd() {
+          this.draggingTaskId = null
+          this.dragOverColumn = ''
+        },
+        onDragOver(columnKey) {
+          if (this.dragOverColumn !== columnKey) this.dragOverColumn = columnKey
+        },
+        onDragLeave() {
+          this.dragOverColumn = ''
+        },
+        onDrop(payload) {
+          this.store.board.moveTask(payload.taskId, payload.targetStatus)
+          this.draggingTaskId = null
+          this.dragOverColumn = ''
+        },
+        openNewTask() {
+          this.newTitle = ''
+          this.newStatus = 'todo'
+          this.newPriority = 'medium'
+          this.newAssignee = this.store.auth.user?.name || ''
+          this.newDescription = ''
+          this.showModal = true
+        },
+        addTask() {
+          if (!this.newTitle.trim()) return
+          this.store.board.addTask({
+            title: this.newTitle.trim(),
+            status: this.newStatus,
+            priority: this.newPriority,
+            done: this.newStatus === 'done',
+            assignee: this.newAssignee || this.store.auth.user.name,
+            description: this.newDescription || '<p>New task - edit to add details.</p>',
+          })
+          this.showModal = false
+        },
+      },
+
+      mount() {
+        this.store.board.loadTasks()
+      },
+
+      unmount() {
+        this.store.board.search = ''
+      },
+
+      view: ($) => ({
+        div: {
+          class: 'board-page',
+          children: [
+            { div: { class: 'board-header', children: [
+              { CardWrapper: { accent: '#f59e0b', children: [
+                { h1: 'Task Board' },
+              ] } },
+              { div: { class: 'spacer' } },
+              { input: { type: 'text', model: $.search, placeholder: 'Search tasks...' } },
+              { button: { click: 'openNewTask', text: '+ New Task' } },
+            ] } },
+
+            { when: $.store.board.loading.loadTasks, children: [
+              { div: { class: 'board-loading', text: 'Loading tasks...' } },
+            ] },
+
+            { when: $.not.store.board.loading.loadTasks, children: [
+              { div: { class: 'columns', children: [
+                { each: $.columns, as: 'col', key: 'key', children: [
+                  { TaskColumn: { column: $.col, draggingTaskId: $.draggingTaskId, dragOverColumn: $.dragOverColumn, on_select: 'onSelect', on_move: 'onMove', on_dragstart: 'onDragStart', on_dragend: 'onDragEnd', on_dragover: 'onDragOver', on_dragleave: 'onDragLeave', on_drop: 'onDrop' } },
+                ] },
+              ] } },
+            ] },
+
+            // Add Task Modal
+            { when: $.showModal, children: [
+              { div: { class: 'modal-overlay', click: 'showModal = false', children: [
+                { div: { class: 'modal', click: { stop: true }, children: [
+                  { h3: 'New Task' },
+                  { form: { submit: 'addTask', children: [
+                    { label: { text: 'Title' } },
+                    { input: { type: 'text', model: $.newTitle, placeholder: 'Task title...' } },
+                    { label: { text: 'Status' } },
+                    { select: { model: $.newStatus, children: [
+                      { option: { value: 'todo', text: 'To Do' } },
+                      { option: { value: 'in-progress', text: 'In Progress' } },
+                      { option: { value: 'done', text: 'Done' } },
+                    ] } },
+                    { label: { text: 'Priority' } },
+                    { select: { model: $.newPriority, children: [
+                      { option: { value: 'low', text: 'Low' } },
+                      { option: { value: 'medium', text: 'Medium' } },
+                      { option: { value: 'high', text: 'High' } },
+                    ] } },
+                    { label: { text: 'Assignee' } },
+                    { input: { type: 'text', model: $.newAssignee } },
+                    { label: { text: 'Description (HTML)' } },
+                    { textarea: { model: $.newDescription, placeholder: 'Task description...' } },
+                    { div: { class: 'modal-actions', children: [
+                      { button: { type: 'button', click: 'showModal = false', text: 'Cancel' } },
+                      { button: { type: 'submit', class: 'btn-primary', text: 'Add Task' } },
+                    ] } },
+                  ] } },
+                ] } },
+              ] } },
+            ] },
+          ],
+        },
+      }),
+    })
+
+    // 6. TaskDetail
+    blok.component('TaskDetail', {
+      state: {
+        showEdit: false,
+        editTitle: '', editStatus: '', editPriority: '',
+        editAssignee: '', editDescription: '',
+      },
+
+      computed: {
+        task() {
+          const id = Number(this.route.params.id)
+          return this.store.board.tasks.find(t => t.id === id) || null
+        },
+      },
+
+      methods: {
+        goBack() { this.navigate(-1) },
+        openEdit() {
+          if (!this.task) return
+          this.editTitle = this.task.title
+          this.editStatus = this.task.status
+          this.editPriority = this.task.priority
+          this.editAssignee = this.task.assignee
+          this.editDescription = this.task.description
+          this.showEdit = true
+        },
+        saveEdit() {
+          if (!this.task || !this.editTitle.trim()) return
+          this.store.board.updateTask(this.task.id, {
+            title: this.editTitle.trim(),
+            status: this.editStatus,
+            priority: this.editPriority,
+            assignee: this.editAssignee,
+            description: this.editDescription,
+          })
+          this.showEdit = false
+        },
+        removeTask() {
+          if (!this.task) return
+          this.store.board.removeTask(this.task.id)
+          this.navigate('/board')
+        },
+      },
+
+      view: ($) => ({
+        div: {
+          class: 'detail-page',
+          children: [
+            { button: { class: 'back', click: 'goBack', text: '\u2190 Back' } },
+
+            { when: $.not.task, children: [
+              { div: { class: 'not-found', children: [
+                { h2: 'Task not found' },
+                { p: 'This task does not exist.' },
+              ] } },
+            ] },
+
+            { when: $.task, children: [
+              { h2: { text: $.task.title } },
+              { div: { class: 'meta', children: [
+                { span: { text: 'Assigned to: ' } },
+                { strong: { text: $.task.assignee } },
+                { span: { text: ' \u2022 Priority: ' } },
+                { strong: { text: $.task.priority } },
+                { span: { text: ' \u2022 Status: ' } },
+                { strong: { text: $.task.status } },
+              ] } },
+
+              { div: { class: 'task-description', html: $.task.description } },
+
+              { div: { style: 'display: flex; gap: 8px;', children: [
+                { button: { click: 'openEdit', text: 'Edit task', style: 'padding: 6px 14px; background: #f59e0b; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;' } },
+                { button: { click: 'removeTask', text: 'Delete task', style: 'padding: 6px 14px; background: #ef4444; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;' } },
+              ] } },
+            ] },
+
+            // Edit Modal
+            { when: $.showEdit, children: [
+              { div: { class: 'modal-overlay', click: 'showEdit = false', children: [
+                { div: { class: 'modal', click: { stop: true }, children: [
+                  { h3: 'Edit Task' },
+                  { form: { submit: 'saveEdit', children: [
+                    { label: { text: 'Title' } },
+                    { input: { type: 'text', model: $.editTitle, placeholder: 'Task title...' } },
+                    { label: { text: 'Status' } },
+                    { select: { model: $.editStatus, children: [
+                      { option: { value: 'todo', text: 'To Do' } },
+                      { option: { value: 'in-progress', text: 'In Progress' } },
+                      { option: { value: 'done', text: 'Done' } },
+                    ] } },
+                    { label: { text: 'Priority' } },
+                    { select: { model: $.editPriority, children: [
+                      { option: { value: 'low', text: 'Low' } },
+                      { option: { value: 'medium', text: 'Medium' } },
+                      { option: { value: 'high', text: 'High' } },
+                    ] } },
+                    { label: { text: 'Assignee' } },
+                    { input: { type: 'text', model: $.editAssignee } },
+                    { label: { text: 'Description (HTML)' } },
+                    { textarea: { model: $.editDescription } },
+                    { div: { class: 'modal-actions', children: [
+                      { button: { type: 'button', click: 'showEdit = false', text: 'Cancel' } },
+                      { button: { type: 'submit', class: 'btn-primary', text: 'Save' } },
+                    ] } },
+                  ] } },
+                ] } },
+              ] } },
+            ] },
+          ],
+        },
+      }),
+    })
+
+    // 7. NotFound
+    blok.component('NotFound', {
+      methods: {
+        goBack() { this.navigate(-1) },
+      },
+      view: ($) => ({
+        div: { class: 'not-found', children: [
+          { h2: '404 — Page Not Found' },
+          { p: 'The page you are looking for does not exist.' },
+          { button: { class: 'back', click: 'goBack', text: '\u2190 Go back', style: 'margin-top: 12px; padding: 6px 14px; background: none; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; color: #f59e0b; font-size: 14px;' } },
+        ] },
+      }),
+    })
+
+    // ── Mount ──
+    const app = blok.mount('#app', {
+      routes: [
+        { path: '/login', component: 'Login' },
+        { path: '/board', component: 'Board', guard: 'requireAuth' },
+        { path: '/task/:id', component: 'TaskDetail', guard: 'requireAuth' },
+        { path: '*', component: 'NotFound' },
+      ],
+
+      guards: {
+        requireAuth(to, from) {
+          if (!this.store.auth.isLoggedIn) return '/login'
+          return true
+        },
+      },
+
+      methods: {
+        logout() {
+          this.store.auth.logout()
+          this.navigate('/login')
+        },
+      },
+
+      mount() {
+        if (!this.store.auth.isLoggedIn) {
+          this.navigate('/login')
+        } else if (this.route.path === '/' || this.route.path === '/login') {
+          this.navigate('/board')
+        }
+      },
+
+      unmount() {
+        // cleanup hook — demonstrates unmount on root
+      },
+
+      view: ($) => ({
+        div: {
+          class: 'shell',
+          children: [
+            { nav: { class: 'topnav', children: [
+              { a: { href: '/board', link: true, class: 'brand', text: 'BlokJS Task Board' } },
+              { div: { class: 'spacer' } },
+              { when: $.store.auth.isLoggedIn, children: [
+                { span: { class: 'user-info', text: $.store.auth.user.name } },
+                { a: { href: '#', click: { handler: 'logout', prevent: true }, text: 'Sign out' } },
+              ] },
+              { when: $.not.store.auth.isLoggedIn, children: [
+                { a: { href: '/login', link: true, text: 'Sign in' } },
+              ] },
+            ] } },
+            { div: { route: true } },
+          ],
+        },
+      }),
+    })
+  </script>
+</body>
+</html>

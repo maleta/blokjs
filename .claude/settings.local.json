@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:docs.internetcomputer.org)",
+      "WebFetch(domain:internetcomputer.org)",
+      "Bash(pnpm run build)",
+      "Bash(wc:*)",
+      "Bash(npm run:*)",
+      "WebFetch(domain:coderpad.io)",
+      "Bash(gzip:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(ls:*)",
+      "WebFetch(domain:docs.solidjs.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "Bash(npx vitest run:*)",
+      "Bash(git mv:*)"
+    ]
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "name": "@maleta/blokjs",
+  "version": "0.1.0",
+  "description": "A lightweight reactive UI framework with components, routing, and stores",
+  "main": "dist/blokjs.js",
+  "module": "dist/blokjs.esm.min.js",
+  "unpkg": "dist/blokjs.min.js",
+  "jsdelivr": "dist/blokjs.min.js",
+  "browser": "dist/blokjs.min.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "development": "./dist/blokjs.esm.js",
+      "import": "./dist/blokjs.esm.min.js",
+      "default": "./dist/blokjs.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "llm-reference.md",
+    "README.md"
+  ],
+  "keywords": [
+    "ui",
+    "framework",
+    "reactive",
+    "components",
+    "routing",
+    "lightweight"
+  ],
+  "author": "maleta",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maleta/blokjs.git"
+  },
+  "bugs": {
+    "url": "https://github.com/maleta/blokjs/issues"
+  },
+  "homepage": "https://github.com/maleta/blokjs",
+  "scripts": {
+    "build": "tsx build.ts && tsc --emitDeclarationOnly --outDir dist",
+    "build:watch": "tsx watch build.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "pnpm run build && pnpm test"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "happy-dom": "^17.6.3",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.4"
+  }
+}

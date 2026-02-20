@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>BlokJS Counter</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <style>
+    body { font-family: system-ui; max-width: 400px; margin: 40px auto; text-align: center; }
+    button { padding: 8px 20px; margin: 4px; font-size: 18px; cursor: pointer; }
+    h1 { font-size: 48px; margin: 20px 0; }
+  </style>
+  <script src="../packages/blokjs/dist/blokjs.min.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    blok.mount('#app', {
+      state: { count: 0 },
+
+      computed: {
+        label() {
+          return this.count === 1 ? 'click' : 'clicks'
+        }
+      },
+
+      methods: {
+        inc() { this.count++ },
+        dec() { this.count-- },
+        reset() { this.count = 0 }
+      },
+
+      view: ($) => ({
+        div: {
+          children: [
+            { h1: { text: $.count } },
+            { p: { text: $.label } },
+            { div: { children: [
+              { button: { click: 'dec', text: '-' } },
+              { button: { click: 'reset', text: 'Reset' } },
+              { button: { click: 'inc', text: '+' } },
+            ]}}
+          ]
+        }
+      })
+    })
+  </script>
+</body>
+</html>

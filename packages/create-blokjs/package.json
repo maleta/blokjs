@@ -1,0 +1,14 @@
+{
+  "name": "create-blokjs",
+  "version": "0.1.0",
+  "description": "Scaffold a new BlokJS project",
+  "type": "module",
+  "bin": {
+    "create-blokjs": "bin/create-blokjs.js"
+  },
+  "files": [
+    "bin",
+    "template"
+  ],
+  "license": "MIT"
+}

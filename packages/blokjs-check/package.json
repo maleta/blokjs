@@ -1,0 +1,19 @@
+{
+  "name": "blokjs-check",
+  "version": "0.1.0",
+  "description": "CLI tool to validate BlokJS HTML files and report warnings",
+  "type": "module",
+  "bin": {
+    "blokjs-check": "bin/blokjs-check.js"
+  },
+  "files": [
+    "bin"
+  ],
+  "dependencies": {
+    "happy-dom": "^17.6.3"
+  },
+  "devDependencies": {
+    "@maleta/blokjs": "workspace:*"
+  },
+  "license": "MIT"
+}

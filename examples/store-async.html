@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>BlokJS Store + Async Demo</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <style>
+    body { font-family: system-ui; max-width: 600px; margin: 40px auto; padding: 0 20px; }
+    .loading { color: #888; font-style: italic; }
+    .error { color: #ef4444; padding: 8px; background: #fef2f2; border-radius: 4px; margin: 8px 0; }
+    .user { padding: 8px; border: 1px solid #e5e7eb; margin: 4px 0; border-radius: 4px; }
+    button { padding: 8px 16px; background: #f59e0b; color: white; border: none; border-radius: 4px; cursor: pointer; margin: 4px 4px 4px 0; }
+    button:hover { background: #d97706; }
+    h2 { margin-top: 24px; }
+    hr { margin: 24px 0; border: none; border-top: 1px solid #e5e7eb; }
+  </style>
+  <script src="../packages/blokjs/dist/blokjs.min.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    // --- Named store ---
+    blok.store('users', {
+      state: { list: [] },
+      computed: {
+        count() { return this.list.length }
+      },
+      methods: {
+        async load() {
+          await new Promise(r => setTimeout(r, 1000))
+          this.list = [
+            { id: 1, name: 'Alice' },
+            { id: 2, name: 'Bob' },
+            { id: 3, name: 'Charlie' },
+          ]
+        },
+        async fail() {
+          await new Promise(r => setTimeout(r, 500))
+          throw new Error('Network error: could not reach server')
+        },
+        clear() { this.list = [] }
+      }
+    })
+
+    // --- App ---
+    blok.mount('#app', {
+      state: { value: 0 },
+
+      methods: {
+        loadUsers() { this.store.users.load() },
+        clearUsers() { this.store.users.clear() },
+        triggerError() { this.store.users.fail() },
+        async slowIncrement() {
+          await new Promise(r => setTimeout(r, 800))
+          this.value++
+        }
+      },
+
+      view: ($) => ({
+        div: {
+          children: [
+            { h1: 'Store + Async Demo' },
+
+            // --- Named store section ---
+            { h2: 'Named Store (users)' },
+            { div: { children: [
+              { button: { click: 'loadUsers', text: 'Load Users' } },
+              { button: { click: 'clearUsers', text: 'Clear' } },
+              { button: { click: 'triggerError', text: 'Trigger Error' } },
+            ]}},
+
+            // Store loading
+            { when: $.store.users.loading.load, children: [
+              { p: { class: 'loading', text: 'Loading users...' } }
+            ]},
+
+            // Store error
+            { when: $.store.users.error.fail, children: [
+              { p: { class: 'error', text: $.store.users.error.fail } }
+            ]},
+
+            // User count + list
+            { p: { children: [
+              'Users loaded: ',
+              { strong: { text: $.store.users.count } }
+            ]}},
+            { ul: { children: [
+              { each: $.store.users.list, as: 'user', key: 'id', children: [
+                { li: { class: 'user', text: $.user.name } }
+              ]}
+            ]}},
+
+            { hr: true },
+
+            // --- Component async section ---
+            { h2: 'Component Async Method' },
+            { div: { children: [
+              { button: { click: 'slowIncrement', text: 'Slow +1' } },
+              { span: { children: [' Value: ', { strong: { text: $.value } }] } },
+            ]}},
+            { when: $.loading.slowIncrement, children: [
+              { p: { class: 'loading', text: 'Incrementing...' } }
+            ]},
+          ]
+        }
+      })
+    })
+  </script>
+</body>
+</html>
