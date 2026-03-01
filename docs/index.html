@@ -207,7 +207,8 @@
             // --- Introduction ---
             sec('introduction', 'Introduction',
               p('BlokJS is a tiny (~8 KB gzipped) reactive UI framework. No build step, no virtual DOM, no dependencies - just a script tag and plain JavaScript objects that describe your UI. State is reactive via ES Proxy - when data changes, only the affected DOM bindings update. Components, routing, stores, and async tracking are all built in.'),
-              { p: { children: ['Using an LLM to write BlokJS code? Include the ', { a: { href: '../packages/blokjs/llm-reference.md', text: 'LLM Reference' } }, ' (~2,900 tokens) in your context for best results.'] } },
+              { p: { children: ['See the ', { a: { href: '#full-example', text: 'Full Example: Task Board' } }, ' for a complete single-file app that exercises every feature.'] } },
+              { p: { children: ['Using an LLM to write BlokJS code? Include the ', { a: { href: 'https://github.com/maleta/blokjs/blob/main/packages/blokjs/llm-reference.md', text: 'LLM Reference' } }, ' (~2,900 tokens) in your context for best results.'] } },
             ),
 
             // --- Browser Support ---
@@ -1353,7 +1354,7 @@ NotFound     — navigate(-1) back
               ]),
               { p: { children: [
                 '\u2192 ',
-                { a: { href: 'https://github.com/maleta/blokjs/blob/main/examples/task-board.html', text: 'Open the Task Board example' } },
+                { a: { href: '../examples/task-board.html', text: 'Open the Task Board example' } },
               ] } },
             ),
 
