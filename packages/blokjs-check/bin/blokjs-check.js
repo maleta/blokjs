@@ -62,7 +62,7 @@ window.console.warn = (...args) => {
 
 // Resolve blokjs dev build (IIFE with __DEV__: true)
 const require = createRequire(import.meta.url)
-const blokjsPath = require.resolve('blokjs')
+const blokjsPath = require.resolve('@maleta/blokjs')
 const blokjsCode = readFileSync(blokjsPath, 'utf-8')
 
 // Create vm context with happy-dom globals

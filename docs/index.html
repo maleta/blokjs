@@ -84,7 +84,7 @@
 </head>
 <body>
   <div id="app"></div>
-  <script src="https://cdn.jsdelivr.net/npm/@maleta/blokjs@0.1.0/dist/blokjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@maleta/blokjs/dist/blokjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-markup.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-javascript.min.js"></script>
@@ -1304,6 +1304,10 @@ this.items = this.items.filter(i => !i.done)   // triggers update`),
             // --- Full Example ---
             sec('full-example', 'Full Example: Task Board',
               p('The Task Board example is a single HTML file that exercises every BlokJS feature — stores, components, routing, guards, slots, async methods, and more. Use it as a reference for how everything fits together.'),
+              { p: { children: [
+                '\u2192 ',
+                { a: { href: '../examples/task-board.html', text: 'Open the Task Board example' } },
+              ] } },
               sub('full-example-arch', 'Architecture'),
               c(`// Stores
 blok.store('auth', { state, computed, methods: { async login(), logout() } })
@@ -1352,10 +1356,6 @@ NotFound     — navigate(-1) back
                 [ic('assignment expressions'), 'showEdit = true, showModal = false'],
                 [ic('negated refs ($.not)'), 'Auth nav, loading states'],
               ]),
-              { p: { children: [
-                '\u2192 ',
-                { a: { href: '../examples/task-board.html', text: 'Open the Task Board example' } },
-              ] } },
             ),
 
             // --- Validation ---

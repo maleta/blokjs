@@ -9,7 +9,7 @@ BlokJS is a zero-build reactive UI framework. Include via `<script>` tag, use vi
 ## Setup
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@maleta/blokjs@0.1.0/dist/blokjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@maleta/blokjs/dist/blokjs.min.js"></script>
 <div id="app"></div>
 <script>
   blok.mount('#app', {

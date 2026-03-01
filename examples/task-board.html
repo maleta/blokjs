@@ -3,8 +3,6 @@
 <head>
   <meta charset="utf-8">
   <title>BlokJS Task Board</title>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="icon" type="image/png" href="favicon.png">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: system-ui, -apple-system, sans-serif; background: #f0f2f5; color: #1a1a1a; min-height: 100vh; }
@@ -103,7 +101,7 @@
     .task-card.dragging { opacity: 0.4; }
     .column-body.drag-over { background: #f0f4ff; outline: 2px dashed #6366f1; outline-offset: -2px; border-radius: 0 0 8px 8px; }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/@maleta/blokjs@0.1.0/dist/blokjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@maleta/blokjs/dist/blokjs.min.js"></script>
 </head>
 <body>
   <div id="app"></div>
@@ -627,6 +625,8 @@
           return true
         },
       },
+
+      mode: 'hash',
 
       methods: {
         logout() {
