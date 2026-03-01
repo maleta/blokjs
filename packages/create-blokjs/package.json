@@ -10,5 +10,15 @@
     "bin",
     "template"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "author": "maleta",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maleta/blokjs.git"
+  },
+  "bugs": {
+    "url": "https://github.com/maleta/blokjs/issues"
+  },
+  "homepage": "https://github.com/maleta/blokjs/tree/main/packages/create-blokjs",
+  "keywords": ["blokjs", "scaffold", "create", "cli", "starter"]
 }

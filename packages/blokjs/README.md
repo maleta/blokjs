@@ -1,6 +1,6 @@
 # BlokJS
 
-A lightweight reactive UI framework with components, routing, and stores. ~23KB minified (~8KB gzipped), zero runtime dependencies, no build step required.
+Zero-build, zero-dependency, standalone, reactive, lightweight UI framework. ~23KB minified (~8KB gzipped).
 
 [Documentation](https://maleta.github.io/blokjs/docs/) - [Examples](https://github.com/maleta/blokjs/tree/main/examples) - [LLM Reference](packages/blokjs/llm-reference.md) (~2,900 tokens) - [npm](https://www.npmjs.com/package/@maleta/blokjs)
 

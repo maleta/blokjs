@@ -1,7 +1,7 @@
 {
   "name": "@maleta/blokjs",
   "version": "0.1.1",
-  "description": "A lightweight reactive UI framework with components, routing, and stores",
+  "description": "Zero-build, zero-dependency, standalone, reactive, lightweight UI framework",
   "main": "dist/blokjs.js",
   "module": "dist/blokjs.esm.min.js",
   "unpkg": "dist/blokjs.min.js",

@@ -35,7 +35,7 @@ while ((match = scriptRegex.exec(bodyHtml)) !== null) {
     const src = srcMatch[1]
     // Skip remote/CDN scripts
     if (/^https?:\/\//i.test(src)) continue
-    const scriptPath = resolve(htmlDir, src)
+    const scriptPath = resolve(htmlDir, src.replace(/^\//, ''))
     try {
       scripts.push({ code: readFileSync(scriptPath, 'utf-8'), src: scriptPath })
     } catch (e) {

@@ -2,7 +2,7 @@
 
 > This document is designed for LLM consumption. Include it in your context when asking an LLM to write BlokJS code.
 
-BlokJS is a zero-build reactive UI framework. Include via `<script>` tag, use via `blok.component()`, `blok.store()`, and `blok.mount()`. No JSX, no build step. Views are defined as plain JS objects.
+BlokJS is a zero-build, zero-dependency, standalone, reactive, lightweight UI framework. Include via `<script>` tag, use via `blok.component()`, `blok.store()`, and `blok.mount()`. No JSX, no build step. Views are defined as plain JS objects.
 
 ---
 

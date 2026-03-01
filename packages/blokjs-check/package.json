@@ -1,6 +1,6 @@
 {
   "name": "blokjs-check",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CLI tool to validate BlokJS HTML files and report warnings",
   "type": "module",
   "bin": {
@@ -15,5 +15,15 @@
   "devDependencies": {
     "@maleta/blokjs": "workspace:*"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "author": "maleta",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maleta/blokjs.git"
+  },
+  "bugs": {
+    "url": "https://github.com/maleta/blokjs/issues"
+  },
+  "homepage": "https://github.com/maleta/blokjs/tree/main/packages/blokjs-check",
+  "keywords": ["blokjs", "lint", "check", "validation", "cli"]
 }

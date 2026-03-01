@@ -32,7 +32,7 @@ importers:
         specifier: ^17.6.3
         version: 17.6.3
     devDependencies:
-      blokjs:
+      '@maleta/blokjs':
         specifier: workspace:*
         version: link:../blokjs
 
@@ -40,12 +40,12 @@ importers:
 
   packages/vite-plugin-blokjs:
     devDependencies:
+      '@maleta/blokjs':
+        specifier: workspace:*
+        version: link:../blokjs
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.11
-      blokjs:
-        specifier: workspace:*
-        version: link:../blokjs
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
