@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>BlokJS - Two Keys on Same Object Demo</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 600px; margin: 2rem auto; }
+    .box { border: 1px solid #ccc; padding: 1rem; margin: 1rem 0; border-radius: 8px; }
+    h2 { margin-top: 0; }
+    button { padding: 0.4rem 1rem; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>Two element keys on the same object?</h1>
+
+  <div id="wrong"></div>
+  <div id="right"></div>
+
+  <script src="../packages/blokjs/dist/blokjs.js"></script>
+  <script>
+    // Two independent mounts - now supported!
+    blok.mount('#wrong', {
+      state: { msg: '' },
+      methods: {
+        greet() { this.msg = 'Button was clicked!' }
+      },
+      view: ($) => ({
+        div: { class: 'box', children: [
+          { h2: 'Wrong: div + button on same object' },
+          { div: { text: 'I am a div', style: 'color: blue' }, button: { click: 'greet', text: 'Click me (I am a button)' } },
+          { p: { text: $.msg, style: 'color: green; font-weight: bold' } },
+          { p: { text: 'Only the first key (div) renders. The button is lost!', style: 'color: red; font-style: italic' } }
+        ]}
+      })
+    })
+
+    blok.mount('#right', {
+      state: { msg: '' },
+      methods: {
+        greet() { this.msg = 'Button was clicked!' }
+      },
+      view: ($) => ({
+        div: { class: 'box', children: [
+          { h2: 'Right: separate objects in children' },
+          { div: { text: 'I am a div', style: 'color: blue' } },
+          { button: { click: 'greet', text: 'Click me (I am a button)' } },
+          { p: { text: $.msg, style: 'color: green; font-weight: bold' } },
+          { p: { text: 'Both elements render correctly!', style: 'color: green; font-style: italic' } }
+        ]}
+      })
+    })
+  </script>
+</body>
+</html>

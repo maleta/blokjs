@@ -34,6 +34,7 @@ export function createStoreInstance(name: string, def: StoreDef): StoreInstance 
   const errorProxy = createProxy(errorData)
 
   const asyncCounts = new Map<string, number>()
+  const methodCache = new Map<string, Function>()
 
   const proxy: any = new Proxy({} as any, {
     get(_, key) {
@@ -44,12 +45,17 @@ export function createStoreInstance(name: string, def: StoreDef): StoreInstance 
       if (k === 'error') return errorProxy
 
       if (def.methods && k in def.methods) {
-        const fn = def.methods[k]
-        return (...args: any[]) => {
-          const result = fn.apply(proxy, args)
-          wrapAsync({ loadingData, loadingProxy, errorData, errorProxy }, asyncCounts, k, result)
-          return result
+        let cached = methodCache.get(k)
+        if (!cached) {
+          const fn = def.methods[k]
+          cached = (...args: any[]) => {
+            const result = fn.apply(proxy, args)
+            wrapAsync({ loadingData, loadingProxy, errorData, errorProxy }, asyncCounts, k, result)
+            return result
+          }
+          methodCache.set(k, cached)
         }
+        return cached
       }
 
       if (def.computed && k in def.computed) {

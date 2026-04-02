@@ -30,14 +30,14 @@ function trigger(target: object, key: string | symbol): void {
   const depsMap = targetMap.get(target)
   if (!depsMap) return
   const dep = depsMap.get(key)
-  if (dep) { for (const e of [...dep]) schedule(e) }
+  if (dep) { for (const e of dep) schedule(e) }
 }
 
 function triggerAll(target: object): void {
   const depsMap = targetMap.get(target)
   if (!depsMap) return
   for (const dep of depsMap.values()) {
-    for (const e of [...dep]) schedule(e)
+    for (const e of dep) schedule(e)
   }
 }
 

@@ -19,6 +19,7 @@ export interface MountOptions extends ComponentDef {
   routes?: RouteConfig[]
   guards?: Record<string, (this: any, to: any, from: any) => string | boolean>
   mode?: 'hash' | 'history' | 'auto'
+  isolated?: boolean
 }
 
 export interface RouteConfig {
@@ -150,6 +151,7 @@ export const RESERVED_CONTEXT_KEYS: Record<string, 1> = { store: 1, loading: 1, 
 
 function createContext(inst: ComponentInstance): any {
   const asyncCounts = new Map<string, number>()
+  const methodCache = new Map<string, Function>()
 
   return new Proxy({} as any, {
     get(_, key) {
@@ -166,14 +168,19 @@ function createContext(inst: ComponentInstance): any {
       if (k === 'emit') return (event: string, payload?: any) => emitEvent(inst, event, payload)
       if (k === 'navigate') return (to: string | number) => inst.app.router?.navigate(to)
 
-      // Methods - wrap for async loading/error tracking
+      // Methods - wrap for async loading/error tracking (cached)
       if (inst.def.methods && k in inst.def.methods) {
-        const fn = inst.def.methods[k]
-        return (...args: any[]) => {
-          const result = fn.apply(inst.context, args)
-          wrapAsync(inst, asyncCounts, k, result)
-          return result
+        let cached = methodCache.get(k)
+        if (!cached) {
+          const fn = inst.def.methods[k]
+          cached = (...args: any[]) => {
+            const result = fn.apply(inst.context, args)
+            wrapAsync(inst, asyncCounts, k, result)
+            return result
+          }
+          methodCache.set(k, cached)
         }
+        return cached
       }
 
       // Computed
@@ -372,10 +379,11 @@ export function setOnInstance(inst: ComponentInstance, path: string[], value: an
 export function setupWatchers(inst: ComponentInstance): void {
   if (!inst.def.watch) return
   for (const [key, fn] of Object.entries(inst.def.watch)) {
-    let oldVal = untracked(() => resolveOnInstance(inst, [key]))
+    const path = key.split('.')
+    let oldVal = untracked(() => resolveOnInstance(inst, path))
 
     createEffect(() => {
-      const newVal = resolveOnInstance(inst, [key])
+      const newVal = resolveOnInstance(inst, path)
       if (newVal !== oldVal) {
         const prev = oldVal
         oldVal = newVal

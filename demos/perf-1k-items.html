@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>BlokJS - 1K Items Performance Benchmark</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; padding: 1.5rem; }
+    h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
+    .subtitle { color: #94a3b8; font-size: 0.85rem; margin-bottom: 1rem; }
+
+    .toolbar { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
+    .toolbar input[type="text"] {
+      flex: 1; min-width: 200px; padding: 0.5rem 0.75rem; border-radius: 6px;
+      border: 1px solid #334155; background: #1e293b; color: #e2e8f0; font-size: 0.9rem;
+    }
+    .toolbar input:focus { outline: none; border-color: #3b82f6; }
+    .toolbar button {
+      padding: 0.5rem 1rem; border-radius: 6px; border: none; cursor: pointer;
+      font-size: 0.8rem; font-weight: 600; background: #1e293b; color: #e2e8f0;
+      border: 1px solid #334155; transition: background 0.15s;
+    }
+    .toolbar button:hover { background: #334155; }
+
+    .metrics {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.5rem; margin-bottom: 1rem;
+    }
+    .metric {
+      background: #1e293b; border-radius: 8px; padding: 0.6rem 0.75rem;
+      border: 1px solid #334155;
+    }
+    .metric-label { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+    .metric-value { font-size: 1.1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .metric-value.fast { color: #4ade80; }
+    .metric-value.medium { color: #facc15; }
+    .metric-value.slow { color: #f87171; }
+
+    .table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid #334155; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    thead th {
+      position: sticky; top: 0; background: #1e293b; padding: 0.5rem 0.6rem;
+      text-align: left; font-weight: 600; color: #94a3b8; border-bottom: 1px solid #334155;
+      cursor: pointer; user-select: none; white-space: nowrap;
+    }
+    thead th:hover { color: #e2e8f0; }
+    tbody td { padding: 0.4rem 0.6rem; border-bottom: 1px solid #1e293b; white-space: nowrap; }
+    tbody tr:hover { background: #1e293b; }
+    .status-active { color: #4ade80; }
+    .status-inactive { color: #f87171; }
+    .dept { color: #93c5fd; }
+    .salary { font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <h1>BlokJS - 1K Items Performance Benchmark</h1>
+  <p class="subtitle">1000 rows, 10 fields each, reactive search filtering + sorting</p>
+
+  <div id="app"></div>
+
+  <script src="../packages/blokjs/dist/blokjs.js"></script>
+  <script>
+    // --- Data generation ---
+    const FIRST = ['James','Mary','Robert','Patricia','John','Jennifer','Michael','Linda','David','Elizabeth','William','Barbara','Richard','Susan','Joseph','Jessica','Thomas','Sarah','Charles','Karen','Christopher','Lisa','Daniel','Nancy','Matthew','Betty','Anthony','Margaret','Mark','Sandra','Donald','Ashley','Steven','Kimberly','Paul','Emily','Andrew','Donna','Joshua','Michelle','Kenneth','Carol','Kevin','Amanda','Brian','Dorothy','George','Melissa','Timothy','Deborah']
+    const LAST = ['Smith','Johnson','Williams','Brown','Jones','Garcia','Miller','Davis','Rodriguez','Martinez','Hernandez','Lopez','Gonzalez','Wilson','Anderson','Thomas','Taylor','Moore','Jackson','Martin','Lee','Perez','Thompson','White','Harris','Sanchez','Clark','Ramirez','Lewis','Robinson','Walker','Young','Allen','King','Wright','Scott','Torres','Nguyen','Hill','Flores']
+    const DEPTS = ['Engineering','Marketing','Sales','Finance','HR','Design','Product','Legal','Support','Operations']
+    const CITIES = ['New York','San Francisco','Austin','Seattle','Chicago','Denver','Boston','Portland','Miami','Atlanta']
+    const TITLES = ['Junior','Mid','Senior','Lead','Principal','Staff','Director','VP','Manager','Analyst']
+    const SKILLS = ['JavaScript','Python','Go','Rust','TypeScript','Java','C#','Ruby','Swift','Kotlin','SQL','GraphQL','React','Vue','Svelte','AWS','Docker','K8s']
+
+    function rand(arr) { return arr[Math.floor(Math.random() * arr.length)] }
+    function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min }
+
+    function generateItems(count) {
+      const items = []
+      for (let i = 0; i < count; i++) {
+        const first = rand(FIRST)
+        const last = rand(LAST)
+        const dept = rand(DEPTS)
+        items.push({
+          id: i + 1,
+          name: first + ' ' + last,
+          email: (first + '.' + last + '@example.com').toLowerCase(),
+          department: dept,
+          title: rand(TITLES) + ' ' + (dept === 'Engineering' ? 'Engineer' : dept === 'Design' ? 'Designer' : 'Specialist'),
+          city: rand(CITIES),
+          salary: (() => { const n = randInt(45, 195) * 1000; return { val: n, display: '$' + n.toLocaleString() }; })(),
+          experience: randInt(1, 25),
+          active: Math.random() > 0.2,
+          skills: Array.from({ length: randInt(2, 5) }, () => rand(SKILLS)).filter((v, i, a) => a.indexOf(v) === i).join(', ')
+        })
+      }
+      return items
+    }
+
+    const ALL_ITEMS = generateItems(1000)
+
+    // --- App ---
+    blok.mount('#app', {
+      state: {
+        search: '',
+        items: ALL_ITEMS,
+        sortField: 'id',
+        sortAsc: true,
+        filterMs: 0,
+        renderMs: 0,
+        matchCount: ALL_ITEMS.length,
+        lastAction: 'initial load'
+      },
+
+      computed: {
+        filtered() {
+          const t0 = performance.now()
+          const q = this.search.toLowerCase().trim()
+          let result = this.items
+          if (q) {
+            result = result.filter(item =>
+              item.name.toLowerCase().includes(q) ||
+              item.email.toLowerCase().includes(q) ||
+              item.department.toLowerCase().includes(q) ||
+              item.title.toLowerCase().includes(q) ||
+              item.city.toLowerCase().includes(q) ||
+              item.skills.toLowerCase().includes(q)
+            )
+          }
+          const field = this.sortField
+          const asc = this.sortAsc
+          result = [...result].sort((a, b) => {
+            let va = a[field]
+            let vb = b[field]
+            if (field === 'salary') { va = va.val; vb = vb.val }
+            if (typeof va === 'string') return asc ? va.localeCompare(vb) : vb.localeCompare(va)
+            if (typeof va === 'boolean') return asc ? (va === vb ? 0 : va ? -1 : 1) : (va === vb ? 0 : va ? 1 : -1)
+            return asc ? va - vb : vb - va
+          })
+          const elapsed = performance.now() - t0
+          // defer metric update to avoid triggering re-render during computed
+          queueMicrotask(() => {
+            this.filterMs = Math.round(elapsed * 100) / 100
+            this.matchCount = result.length
+          })
+          return result
+        }
+      },
+
+      methods: {
+        measureRender(action) {
+          this.lastAction = action
+          const t0 = performance.now()
+          requestAnimationFrame(() => {
+            this.renderMs = Math.round((performance.now() - t0) * 100) / 100
+          })
+        },
+        sortBy(field) {
+          if (this.sortField === field) {
+            this.sortAsc = !this.sortAsc
+          } else {
+            this.sortField = field
+            this.sortAsc = true
+          }
+          this.measureRender('sort by ' + field)
+        },
+        resetSearch() {
+          this.search = ''
+          this.measureRender('reset search')
+        },
+        shuffle() {
+          const shuffled = [...this.items]
+          for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+          }
+          this.items = shuffled
+          this.measureRender('shuffle')
+        },
+        bulkToggle() {
+          this.items = this.items.map(item => ({ ...item, active: !item.active }))
+          this.measureRender('bulk toggle active')
+        }
+      },
+
+      mount() {
+        const t0 = performance.now()
+        requestAnimationFrame(() => {
+          this.renderMs = Math.round((performance.now() - t0) * 100) / 100
+        })
+      },
+
+      watch: {
+        search() {
+          this.measureRender('search: "' + this.search + '"')
+        }
+      },
+
+      view: ($) => ({
+        div: { children: [
+          // Toolbar
+          { div: { class: 'toolbar', children: [
+            { input: { type: 'text', placeholder: 'Search name, email, department, title, city, skills...', model: $.search } },
+            { button: { click: 'resetSearch', text: 'Clear' } },
+            { button: { click: 'shuffle', text: 'Shuffle' } },
+            { button: { click: 'bulkToggle', text: 'Toggle Active' } }
+          ]}},
+
+          // Metrics
+          { div: { class: 'metrics', children: [
+            { div: { class: 'metric', children: [
+              { div: { class: 'metric-label', text: 'Showing' } },
+              { div: { class: 'metric-value', text: $.matchCount } }
+            ]}},
+            { div: { class: 'metric', children: [
+              { div: { class: 'metric-label', text: 'Filter time' } },
+              { div: { class: 'metric-value', text: $.filterMs } }
+            ]}},
+            { div: { class: 'metric', children: [
+              { div: { class: 'metric-label', text: 'Render time (ms)' } },
+              { div: { class: 'metric-value', text: $.renderMs } }
+            ]}},
+            { div: { class: 'metric', children: [
+              { div: { class: 'metric-label', text: 'Last action' } },
+              { div: { class: 'metric-value', style: 'font-size:0.85rem;color:#94a3b8', text: $.lastAction } }
+            ]}}
+          ]}},
+
+          // Table
+          { div: { class: 'table-wrap', children: [
+            { table: { children: [
+              { thead: { children: [
+                { tr: { children: [
+                  { th: { click: "sortBy('id')",       children: [{ span: 'ID' },         { span: { text: $.not ? '' : '' } }] } },
+                  { th: { click: "sortBy('name')",     text: 'Name' } },
+                  { th: { click: "sortBy('email')",    text: 'Email' } },
+                  { th: { click: "sortBy('department')", text: 'Dept' } },
+                  { th: { click: "sortBy('title')",    text: 'Title' } },
+                  { th: { click: "sortBy('city')",     text: 'City' } },
+                  { th: { click: "sortBy('salary')",   text: 'Salary' } },
+                  { th: { click: "sortBy('experience')", text: 'Exp' } },
+                  { th: { click: "sortBy('active')",   text: 'Status' } },
+                  { th: { text: 'Skills' } }
+                ]}}
+              ]}},
+              { tbody: { children: [
+                { each: $.filtered, as: 'row', key: 'id', children: [
+                  { tr: { children: [
+                    { td: { text: $.row.id } },
+                    { td: { style: 'font-weight:600', text: $.row.name } },
+                    { td: { style: 'color:#94a3b8', text: $.row.email } },
+                    { td: { class: 'dept', text: $.row.department } },
+                    { td: { text: $.row.title } },
+                    { td: { text: $.row.city } },
+                    { td: { class: 'salary', text: $.row.salary.display } },
+                    { td: { text: $.row.experience } },
+                    { td: { children: [
+                      { when: $.row.active, children: [{ span: { class: 'status-active', text: 'Active' } }] },
+                      { when: $.not.row.active, children: [{ span: { class: 'status-inactive', text: 'Inactive' } }] }
+                    ]}},
+                    { td: { style: 'color:#94a3b8;max-width:200px;overflow:hidden;text-overflow:ellipsis', text: $.row.skills } }
+                  ]}}
+                ]}
+              ]}}
+            ]}}
+          ]}}
+        ]}
+      })
+    })
+  </script>
+</body>
+</html>
