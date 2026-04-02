@@ -1,6 +1,6 @@
 # BlokJS
 
-Zero-build, zero-dependency, standalone, reactive, lightweight UI framework. ~23KB minified (~8KB gzipped).
+Zero-build, zero-dependency, standalone, reactive, lightweight UI framework. ~28KB minified (~9KB gzipped).
 
 [Documentation](https://maleta.github.io/blokjs/docs/) - [Examples](https://github.com/maleta/blokjs/tree/main/examples) - [LLM Reference](packages/blokjs/llm-reference.md) (~2,900 tokens) - [npm](https://www.npmjs.com/package/@maleta/blokjs)
 
@@ -37,6 +37,7 @@ No virtual DOM. Views are plain JavaScript objects. State is reactive - when `co
 - **Stores** - global state with computed properties and async tracking
 - **Async tracking** - automatic `loading` and `error` state for async methods
 - **URL sanitization** - `javascript:` and dangerous URIs blocked on href/src attributes
+- **Multi-mount** - multiple independent app instances, optional full isolation
 - **Zero dependencies** - single script tag, no build step needed
 
 ## Components

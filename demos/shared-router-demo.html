@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>BlokJS - Shared Router via Store</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 600px; margin: 2rem auto; }
+    .box { border: 1px solid #ccc; padding: 1rem; margin: 1rem 0; border-radius: 8px; }
+    .sidebar { background: #f0f4ff; border-color: #99b; }
+    h2 { margin-top: 0; }
+    a { margin-right: 0.5rem; }
+    .active { font-weight: bold; color: #333; }
+    .inactive { color: #999; }
+  </style>
+</head>
+<body>
+  <h1>Two mounts sharing route awareness</h1>
+  <p>Main app owns the router. Sidebar reacts to route changes via a shared store.</p>
+
+  <div id="sidebar"></div>
+  <div id="main"></div>
+
+  <script src="../packages/blokjs/dist/blokjs.js"></script>
+  <script>
+    // Shared store - the bridge between mounts
+    blok.store('nav', {
+      state: { currentPath: '/' },
+    })
+
+    // Pages
+    blok.component('Home', {
+      view: ($) => ({ div: { children: [
+        { h3: 'Home' },
+        { p: 'Welcome to BlokJS multi-mount demo!' }
+      ]}})
+    })
+
+    blok.component('About', {
+      view: ($) => ({ div: { children: [
+        { h3: 'About' },
+        { p: 'BlokJS now supports multiple independent mounts.' }
+      ]}})
+    })
+
+    blok.component('Contact', {
+      view: ($) => ({ div: { children: [
+        { h3: 'Contact' },
+        { p: 'Reach us at hello@blokjs.dev' }
+      ]}})
+    })
+
+    // Main app - owns the router, syncs path to store
+    blok.mount('#main', {
+      routes: [
+        { path: '/', component: 'Home' },
+        { path: '/about', component: 'About' },
+        { path: '/contact', component: 'Contact' },
+      ],
+      watch: {
+        'route.path'(path) {
+          this.store.nav.currentPath = path
+        }
+      },
+      mount() {
+        this.store.nav.currentPath = this.route.path
+      },
+      view: ($) => ({
+        div: { class: 'box', children: [
+          { h2: 'Main App (router owner)' },
+          { nav: { children: [
+            { a: { href: '/', link: true, text: 'Home' } },
+            { a: { href: '/about', link: true, text: 'About' } },
+            { a: { href: '/contact', link: true, text: 'Contact' } },
+          ]}},
+          { div: { route: true } }
+        ]}
+      })
+    })
+
+    // Sidebar - no router, reads route from shared store
+    blok.mount('#sidebar', {
+      computed: {
+        isHome() { return this.store.nav.currentPath === '/' },
+        isAbout() { return this.store.nav.currentPath === '/about' },
+        isContact() { return this.store.nav.currentPath === '/contact' },
+      },
+      view: ($) => ({
+        div: { class: 'box sidebar', children: [
+          { h2: 'Sidebar (no router, reads store)' },
+          { p: { children: [
+            { span: 'You are on: ' },
+            { strong: { text: $.store.nav.currentPath } },
+          ]}},
+          { ul: { children: [
+            { li: { class: { active: $.isHome, inactive: $.not.isHome }, text: 'Home' } },
+            { li: { class: { active: $.isAbout, inactive: $.not.isAbout }, text: 'About' } },
+            { li: { class: { active: $.isContact, inactive: $.not.isContact }, text: 'Contact' } },
+          ]}}
+        ]}
+      })
+    })
+  </script>
+</body>
+</html>

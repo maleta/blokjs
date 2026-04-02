@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>BlokJS - Two Routers (Fails)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 600px; margin: 2rem auto; }
+    .box { border: 1px solid #ccc; padding: 1rem; margin: 1rem 0; border-radius: 8px; }
+    .error { background: #fee; border-color: #c00; color: #900; font-family: monospace; white-space: pre-wrap; }
+    h2 { margin-top: 0; }
+  </style>
+</head>
+<body>
+  <h1>Two routers - singleton guard demo</h1>
+
+  <div id="app-a"></div>
+  <div id="app-b"></div>
+  <div id="error-output" class="box error" style="display: none"></div>
+
+  <script src="../packages/blokjs/dist/blokjs.js"></script>
+  <script>
+    blok.component('Home', {
+      view: ($) => ({ p: 'Home page' })
+    })
+
+    blok.component('About', {
+      view: ($) => ({ p: 'About page' })
+    })
+
+    // First mount with routes - works fine
+    blok.mount('#app-a', {
+      routes: [
+        { path: '/', component: 'Home' },
+        { path: '/about', component: 'About' },
+      ],
+      view: ($) => ({
+        div: { class: 'box', children: [
+          { h2: 'App A (has router - works)' },
+          { nav: { children: [
+            { a: { href: '/', link: true, text: 'Home' } },
+            { span: ' | ' },
+            { a: { href: '/about', link: true, text: 'About' } },
+          ]}},
+          { div: { route: true } }
+        ]}
+      })
+    })
+
+    // Second mount with routes - throws!
+    try {
+      blok.mount('#app-b', {
+        routes: [
+          { path: '/', component: 'Home' },
+        ],
+        view: ($) => ({
+          div: { class: 'box', children: [
+            { h2: 'App B (second router - should fail)' },
+            { div: { route: true } }
+          ]}
+        })
+      })
+    } catch (e) {
+      const el = document.getElementById('error-output')
+      el.style.display = 'block'
+      el.textContent = 'Caught: ' + e.message
+    }
+  </script>
+</body>
+</html>

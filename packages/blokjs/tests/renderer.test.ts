@@ -755,3 +755,100 @@ describe('html binding', () => {
     expect(htmlDiv.querySelector('b')).toBeNull()
   })
 })
+
+// ---- Nested when blocks ----
+
+describe('nested when blocks', () => {
+  it('inner when renders only once, not duplicated at root', async () => {
+    const { el } = mountApp({
+      state: { outer: true, inner: true },
+      methods: {
+        toggleInner() { this.inner = !this.inner },
+        toggleOuter() { this.outer = !this.outer },
+      },
+      view: ($: any) => ({
+        div: {
+          children: [
+            {
+              when: $.outer,
+              children: [
+                { span: 'A' },
+                {
+                  when: $.inner,
+                  children: [{ span: 'B' }],
+                },
+              ],
+            },
+            { button: { id: 'inner', click: 'toggleInner' } },
+            { button: { id: 'outer', click: 'toggleOuter' } },
+          ],
+        },
+      }),
+    })
+
+    const root = el.querySelector('div')!
+    expect(root.querySelectorAll('span').length).toBe(2)
+    expect(root.textContent).toContain('A')
+    expect(root.textContent).toContain('B')
+
+    // Toggle inner off then on - should not duplicate
+    el.querySelector('#inner')!.click()
+    await flush()
+    expect(root.querySelectorAll('span').length).toBe(1)
+
+    el.querySelector('#inner')!.click()
+    await flush()
+    expect(root.querySelectorAll('span').length).toBe(2)
+
+    // Toggle outer off - inner nodes must be fully cleaned up
+    el.querySelector('#outer')!.click()
+    await flush()
+    expect(root.querySelectorAll('span').length).toBe(0)
+
+    // Toggle outer back on
+    el.querySelector('#outer')!.click()
+    await flush()
+    expect(root.querySelectorAll('span').length).toBe(2)
+  })
+
+  it('inner when toggle then outer toggle does not leak nodes', async () => {
+    const { el } = mountApp({
+      state: { outer: true, inner: true },
+      methods: {
+        toggleInner() { this.inner = !this.inner },
+        toggleOuter() { this.outer = !this.outer },
+      },
+      view: ($: any) => ({
+        div: {
+          children: [
+            {
+              when: $.outer,
+              children: [
+                {
+                  when: $.inner,
+                  children: [{ b: 'nested' }],
+                },
+              ],
+            },
+            { button: { id: 'inner', click: 'toggleInner' } },
+            { button: { id: 'outer', click: 'toggleOuter' } },
+          ],
+        },
+      }),
+    })
+
+    const root = el.querySelector('div')!
+
+    // Toggle inner to cause replacement nodes
+    el.querySelector('#inner')!.click()
+    await flush()
+    el.querySelector('#inner')!.click()
+    await flush()
+    expect(root.querySelectorAll('b').length).toBe(1)
+
+    // Now toggle outer off - replacement nodes must not survive
+    el.querySelector('#outer')!.click()
+    await flush()
+    expect(root.querySelectorAll('b').length).toBe(0)
+  })
+})

@@ -9,7 +9,7 @@ const VALID_DEF_KEYS: Record<string, 1> = {
 
 const VALID_MOUNT_KEYS: Record<string, 1> = {
   ...VALID_DEF_KEYS,
-  routes: 1, guards: 1, mode: 1,
+  routes: 1, guards: 1, mode: 1, isolated: 1,
 }
 
 const VALID_STORE_KEYS: Record<string, 1> = {

@@ -1,6 +1,6 @@
 import { BlokRef, isRef, createRef as createRefForInstance } from './ref-proxy'
 import { Scope } from './scope'
-import { createEffect, untracked } from './reactive'
+import { createEffect, createProxy, untracked } from './reactive'
 import {
   ComponentInstance, resolveOnInstance, setOnInstance,
   createInstance, setupWatchers, RESERVED_CONTEXT_KEYS,
@@ -179,31 +179,47 @@ function renderWhen(tpl: any, ctx: RenderCtx): Node[] {
   const condRef = tpl.when
   const childTemplates: any[] = tpl.children || []
 
-  let currentNodes: Node[] = []
   let childScope: Scope | null = null
+  let initialNodes: Node[] | null = null as Node[] | null
 
   createEffect(() => {
     const show = !!resolve(condRef, ctx)
 
     if (childScope) { childScope.dispose(); childScope = null }
-    for (const n of currentNodes) (n as any).parentNode?.removeChild(n)
-    currentNodes = []
+    // Marker-based cleanup: removes all nodes between markers including
+    // any that nested when/each effects inserted after the initial render
+    while (startMarker.nextSibling && startMarker.nextSibling !== endMarker) {
+      startMarker.nextSibling.remove()
+    }
 
     if (show) {
       childScope = ctx.scope.child()
       const childCtx: RenderCtx = { ...ctx, scope: childScope }
       const nodes = renderNodes(childTemplates, childCtx)
-      currentNodes = nodes
       if (endMarker.parentNode) {
         for (const n of nodes) endMarker.parentNode.insertBefore(n, endMarker)
+      } else {
+        // First synchronous run - markers not in DOM yet; capture for return
+        initialNodes = nodes
       }
     }
   }, ctx.scope)
 
-  return [startMarker, ...currentNodes, endMarker]
+  const result: Node[] = [startMarker]
+  if (initialNodes) result.push(...initialNodes)
+  result.push(endMarker)
+  return result
 }
 
-interface EachEntry { key: any; nodes: Node[]; scope: Scope; setIndex: (i: number) => void }
+interface EachEntry {
+  key: any
+  ei: Comment   // entry start marker
+  eiEnd: Comment // entry end marker
+  initNodes: Node[] // only used for building the initial return value
+  scope: Scope
+  setIndex: (i: number) => void
+  updateItem?: (newItem: any) => void
+}
 
 function renderEach(tpl: any, ctx: RenderCtx): Node[] {
   const startMarker = document.createComment('each')
@@ -216,6 +232,8 @@ function renderEach(tpl: any, ctx: RenderCtx): Node[] {
   let currentEntries: EachEntry[] = []
 
   function renderItem(item: any, index: number): EachEntry {
+    const ei = document.createComment('ei')
+    const eiEnd = document.createComment('/ei')
     const itemScope = ctx.scope.child()
     const itemCtx: RenderCtx = {
       inst: ctx.inst,
@@ -223,15 +241,79 @@ function renderEach(tpl: any, ctx: RenderCtx): Node[] {
       iterVars: new Map(ctx.iterVars),
     }
     let currentIndex = index
+
+    if (keyProp) {
+      // Keyed: per-row signal + cached item reference.
+      // Per-row effects subscribe to the signal and to the item's own properties,
+      // but NOT to the parent array. This avoids O(rows * effects) re-runs on
+      // array reorder/filter. The signal is bumped only when the item object
+      // identity changes (e.g. array replaced with new objects for the same key).
+      const signal = createProxy({ v: 0 })
+      let cachedItem = item
+
+      itemCtx.iterVars.set(itemName, () => {
+        signal.v // subscribe per-row effects to this entry's signal
+        return cachedItem
+      })
+
+      const initNodes = renderNodes(childTemplates, itemCtx)
+      const key = item != null ? item[keyProp] : index
+
+      return {
+        key, ei, eiEnd, initNodes, scope: itemScope,
+        setIndex(i: number) { currentIndex = i },
+        updateItem(newItem: any) {
+          if (newItem !== cachedItem) {
+            cachedItem = newItem
+            signal.v++ // triggers all per-row effects to re-read from new item
+          }
+        },
+      }
+    }
+
+    // Non-keyed: untracked read prevents per-row effects from subscribing
+    // to the parent array. These entries are fully rebuilt on every change anyway.
     itemCtx.iterVars.set(itemName, () => {
-      const arr = resolve(arrayRef, ctx)
-      if (!Array.isArray(arr)) return item
-      return currentIndex < arr.length ? arr[currentIndex] : item
+      return untracked(() => {
+        const arr = resolve(arrayRef, ctx)
+        if (!Array.isArray(arr)) return item
+        return currentIndex < arr.length ? arr[currentIndex] : item
+      })
     })
 
-    const nodes = renderNodes(childTemplates, itemCtx)
-    const key = keyProp && item != null ? item[keyProp] : index
-    return { key, nodes, scope: itemScope, setIndex(i: number) { currentIndex = i } }
+    const initNodes = renderNodes(childTemplates, itemCtx)
+    return { key: index, ei, eiEnd, initNodes, scope: itemScope, setIndex(i: number) { currentIndex = i } }
+  }
+
+  // Insert a freshly created entry's markers + nodes before a reference node
+  function insertEntry(entry: EachEntry, ref: Node): void {
+    const parent = ref.parentNode!
+    parent.insertBefore(entry.ei, ref)
+    for (const n of entry.initNodes) parent.insertBefore(n, ref)
+    parent.insertBefore(entry.eiEnd, ref)
+  }
+
+  // Remove an entry using marker-based cleanup (handles nested replaced nodes)
+  function removeEntry(entry: EachEntry): void {
+    entry.scope.dispose()
+    while (entry.ei.nextSibling && entry.ei.nextSibling !== entry.eiEnd) {
+      entry.ei.nextSibling.remove()
+    }
+    entry.ei.remove()
+    entry.eiEnd.remove()
+  }
+
+  // Move an existing entry's entire DOM block before a reference node
+  function moveEntry(entry: EachEntry, ref: Node): void {
+    const parent = ref.parentNode!
+    const batch: Node[] = []
+    let cur: Node | null = entry.ei
+    while (cur) {
+      batch.push(cur)
+      if (cur === entry.eiEnd) break
+      cur = cur.nextSibling
+    }
+    for (const n of batch) parent.insertBefore(n, ref)
   }
 
   createEffect(() => {
@@ -241,27 +323,17 @@ function renderEach(tpl: any, ctx: RenderCtx): Node[] {
     // Build new keys
     const newKeys = items.map((item, i) => keyProp && item != null ? item[keyProp] : i)
 
-    // Quick same-check
-    if (newKeys.length === currentEntries.length) {
-      let same = true
-      for (let i = 0; i < newKeys.length; i++) {
-        if (currentEntries[i].key !== newKeys[i]) { same = false; break }
-      }
-      if (same) return
-    }
-
-    // No key prop: full teardown + rebuild (original behavior)
+    // No key prop: full teardown + rebuild
     if (!keyProp) {
-      for (const entry of currentEntries) {
-        entry.scope.dispose()
-        for (const n of entry.nodes) (n as any).parentNode?.removeChild(n)
+      for (const entry of currentEntries) entry.scope.dispose()
+      // Marker-based cleanup: remove everything between each-level markers
+      while (startMarker.nextSibling && startMarker.nextSibling !== endMarker) {
+        startMarker.nextSibling.remove()
       }
       currentEntries = []
       for (let i = 0; i < items.length; i++) {
         const entry = renderItem(items[i], i)
-        if (endMarker.parentNode) {
-          for (const n of entry.nodes) endMarker.parentNode!.insertBefore(n, endMarker)
-        }
+        if (endMarker.parentNode) insertEntry(entry, endMarker)
         currentEntries.push(entry)
       }
       return
@@ -278,32 +350,37 @@ function renderEach(tpl: any, ctx: RenderCtx): Node[] {
 
     const newEntries: EachEntry[] = []
     const reused = new Set<any>()
+    let orderChanged = newKeys.length !== currentEntries.length
 
     for (let i = 0; i < items.length; i++) {
       const k = newKeys[i]
       const old = oldByKey.get(k)
       if (old) {
         old.setIndex(i)
+        old.updateItem!(items[i])
         old.key = k
+        if (!orderChanged && currentEntries[i]?.key !== k) orderChanged = true
         newEntries.push(old)
         reused.add(k)
       } else {
+        orderChanged = true
         newEntries.push(renderItem(items[i], i))
       }
     }
 
-    // Dispose + remove old entries not reused
+    // Dispose + remove old entries not reused (marker-based)
     for (const entry of currentEntries) {
-      if (!reused.has(entry.key)) {
-        entry.scope.dispose()
-        for (const n of entry.nodes) (n as any).parentNode?.removeChild(n)
-      }
+      if (!reused.has(entry.key)) removeEntry(entry)
     }
 
-    // Insert all entries' nodes in order before endMarker (moves existing nodes)
-    if (endMarker.parentNode) {
+    // Only move DOM nodes when order actually changed
+    if (orderChanged && endMarker.parentNode) {
       for (const entry of newEntries) {
-        for (const n of entry.nodes) endMarker.parentNode!.insertBefore(n, endMarker)
+        if (entry.ei.parentNode) {
+          moveEntry(entry, endMarker)
+        } else {
+          insertEntry(entry, endMarker)
+        }
       }
     }
 
@@ -311,7 +388,9 @@ function renderEach(tpl: any, ctx: RenderCtx): Node[] {
   }, ctx.scope)
 
   const result: Node[] = [startMarker]
-  for (const entry of currentEntries) result.push(...entry.nodes)
+  for (const entry of currentEntries) {
+    result.push(entry.ei, ...entry.initNodes, entry.eiEnd)
+  }
   result.push(endMarker)
   return result
 }
@@ -557,7 +636,7 @@ function applyStyle(el: HTMLElement, val: any, ctx: RenderCtx): void {
       if (typeof resolved === 'string') { el.setAttribute('style', resolved) }
       else if (typeof resolved === 'object' && resolved != null) {
         for (const [prop, v] of Object.entries(resolved)) {
-          el.style.setProperty(prop.startsWith('--') ? prop : prop.replace(/[A-Z]/g, m => '-' + m.toLowerCase()), String(v ?? ''))
+          el.style.setProperty(toKebab(prop), String(v ?? ''))
         }
       }
     }, ctx.scope)
@@ -565,7 +644,7 @@ function applyStyle(el: HTMLElement, val: any, ctx: RenderCtx): void {
   }
   if (typeof val === 'object' && val != null) {
     for (const [prop, v] of Object.entries(val)) {
-      const cssProp = prop.startsWith('--') ? prop : prop.replace(/[A-Z]/g, m => '-' + m.toLowerCase())
+      const cssProp = toKebab(prop)
       if (isRef(v)) {
         createEffect(() => {
           el.style.setProperty(cssProp, String(resolve(v, ctx) ?? ''))
@@ -623,38 +702,50 @@ function attachEvent(el: HTMLElement, rawEvent: string, handler: any, ctx: Rende
 
   const eventName = rawEvent.split('.')[0]
 
+  // Pre-parse handler at bind time to avoid regex on every event fire
+  const assignMatch = handlerStr ? handlerStr.match(/^(\w+)\s*=\s*(.+)$/) : null
+  const callMatch = !assignMatch && handlerStr ? handlerStr.match(/^(\w+)\((.+)\)$/) : null
+
+  // Pre-parse static assignment value
+  let assignKey: string | undefined
+  let assignValue: any
+  let assignArgStrings: string[] | undefined
+  if (assignMatch) {
+    assignKey = assignMatch[1]
+    const rawVal = assignMatch[2].trim()
+    if (rawVal === 'true') assignValue = true
+    else if (rawVal === 'false') assignValue = false
+    else if (rawVal === 'null') assignValue = null
+    else if (rawVal === "''" || rawVal === '""' || rawVal === '') assignValue = ''
+    else if (!isNaN(Number(rawVal))) assignValue = Number(rawVal)
+    else assignValue = rawVal.replace(/^['"]|['"]$/g, '')
+  }
+
+  let callMethodName: string | undefined
+  if (callMatch) {
+    callMethodName = callMatch[1]
+    assignArgStrings = parseArgs(callMatch[2])
+  }
+
   el.addEventListener(eventName, (e) => {
     if (prevent || eventName === 'submit') e.preventDefault()
     if (stop) e.stopPropagation()
     if (!handlerStr) return
 
-    const assignMatch = handlerStr.match(/^(\w+)\s*=\s*(.+)$/)
-    if (assignMatch) {
-      const key = assignMatch[1]
-      const rawVal = assignMatch[2].trim()
-      let parsed: any
-      if (rawVal === 'true') parsed = true
-      else if (rawVal === 'false') parsed = false
-      else if (rawVal === 'null') parsed = null
-      else if (rawVal === "''" || rawVal === '""' || rawVal === '') parsed = ''
-      else if (!isNaN(Number(rawVal))) parsed = Number(rawVal)
-      else parsed = rawVal.replace(/^['"]|['"]$/g, '')
-
-      if (key in RESERVED_CONTEXT_KEYS) return
-      if (ctx.inst.def.methods?.[key] || key in ctx.inst.computedDefs) {
-        console.warn(`[blok] Cannot assign to ${key in ctx.inst.computedDefs ? 'computed' : 'method'} "${key}" via event handler`)
+    if (assignKey) {
+      if (assignKey in RESERVED_CONTEXT_KEYS) return
+      if (ctx.inst.def.methods?.[assignKey] || assignKey in ctx.inst.computedDefs) {
+        console.warn(`[blok] Cannot assign to ${assignKey in ctx.inst.computedDefs ? 'computed' : 'method'} "${assignKey}" via event handler`)
         return
       }
-      setOnInstance(ctx.inst, [key], parsed)
+      setOnInstance(ctx.inst, [assignKey], assignValue)
       return
     }
 
-    const callMatch = handlerStr.match(/^(\w+)\((.+)\)$/)
-    if (callMatch) {
-      const methodName = callMatch[1]
-      if (ctx.inst.def.methods?.[methodName]) {
-        const args = parseArgs(callMatch[2]).map(a => resolveArg(a, ctx))
-        ctx.inst.context[methodName](...args)
+    if (callMethodName) {
+      if (ctx.inst.def.methods?.[callMethodName]) {
+        const args = assignArgStrings!.map(a => resolveArg(a, ctx))
+        ctx.inst.context[callMethodName](...args)
       }
       return
     }
@@ -709,6 +800,17 @@ function resolveArg(arg: string, ctx: RenderCtx): any {
     return v
   }
   return resolveOnInstance(ctx.inst, parts)
+}
+
+const kebabCache = new Map<string, string>()
+function toKebab(prop: string): string {
+  if (prop.startsWith('--')) return prop
+  let cached = kebabCache.get(prop)
+  if (!cached) {
+    cached = prop.replace(/[A-Z]/g, m => '-' + m.toLowerCase())
+    kebabCache.set(prop, cached)
+  }
+  return cached
 }
 
 const URL_ATTR_SET: Record<string, 1> = { href: 1, src: 1, action: 1, formaction: 1 }

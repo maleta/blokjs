@@ -45,7 +45,23 @@ Options:
 - `guards` - route guard functions
 - `mode` - router mode: `'hash'` | `'history'` | `'auto'` (default: `'auto'`)
 
+Additional options:
+- `isolated` - `true` for fully sandboxed instance (own store state, copied component registry)
+
 Returns `{ destroy() }`.
+
+Multiple `blok.mount()` calls create independent app instances. By default they share the global component registry and store state. Use `isolated: true` for full sandboxing.
+
+```js
+// Shared (default) - both see the same stores and components
+blok.mount('#app1', { view: ($) => ({ MyWidget: {} }) })
+blok.mount('#app2', { view: ($) => ({ MyWidget: {} }) })
+
+// Isolated - own store state, copied registry
+blok.mount('#sidebar', { isolated: true, view: ($) => ({ Nav: {} }) })
+```
+
+**Router constraint:** Only one mount can declare `routes`. A second mount with `routes` throws an error.
 
 ### `blok.component(name, definition)` - Register component
 
