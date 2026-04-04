@@ -8,6 +8,7 @@ interface Effect {
   run(): void
   deps: Set<Set<Effect>>
   active: boolean
+  scheduler?: () => void // if set, called synchronously instead of queue-based scheduling
 }
 
 let activeEffect: Effect | null = null
@@ -52,6 +53,7 @@ const queue = new Set<Effect>()
 let flushing = false
 
 function schedule(effect: Effect): void {
+  if (effect.scheduler) { effect.scheduler(); return }
   queue.add(effect)
   if (!flushing) {
     flushing = true
@@ -77,6 +79,13 @@ function schedule(effect: Effect): void {
 // --- Public: effects ---
 
 export function createEffect(fn: () => void, scope: Scope): void {
+  if (deferredDepth > 0) {
+    // Deferred: set initial DOM values without tracking, queue real effect for later
+    untracked(fn)
+    deferredQueue.push({ fn, scope })
+    return
+  }
+
   const effect: Effect = {
     run() {
       cleanupEffect(effect)
@@ -89,6 +98,47 @@ export function createEffect(fn: () => void, scope: Scope): void {
   }
   scope.track(() => { effect.active = false; cleanupEffect(effect); queue.delete(effect) })
   effect.run()
+}
+
+// --- Deferred effect mode ---
+// When enabled, createEffect runs fn once untracked (for initial DOM values)
+// and queues the real tracked effect for later. Used by `each` for large lists.
+
+let deferredDepth = 0
+const deferredQueue: Array<{ fn: () => void; scope: Scope }> = []
+
+export function enterDeferredMode(): void { deferredDepth++ }
+/** Returns true when the outermost deferred scope has exited (safe to flush). */
+export function exitDeferredMode(): boolean {
+  deferredDepth = Math.max(0, deferredDepth - 1)
+  return deferredDepth === 0
+}
+
+export function flushDeferred(chunkSize = 50): void {
+  if (deferredQueue.length === 0) return
+  const pending = deferredQueue.splice(0)
+  let index = 0
+
+  function processChunk(): void {
+    const end = Math.min(index + chunkSize, pending.length)
+    for (; index < end; index++) {
+      const { fn, scope } = pending[index]
+      if (!scope.disposed) createEffect(fn, scope)
+    }
+    if (index < pending.length) {
+      if (typeof requestAnimationFrame !== 'undefined') {
+        requestAnimationFrame(processChunk)
+      } else {
+        queueMicrotask(processChunk)
+      }
+    }
+  }
+
+  if (typeof requestAnimationFrame !== 'undefined') {
+    requestAnimationFrame(processChunk)
+  } else {
+    queueMicrotask(processChunk)
+  }
 }
 
 export function pauseTracking(): void {
@@ -105,6 +155,80 @@ export function untracked<T>(fn: () => T): T {
   activeEffect = null
   try { return fn() }
   finally { activeEffect = effectStack.pop() ?? null }
+}
+
+// --- Computed (lazy, memoized) ---
+
+export interface ComputedSignal<T = any> {
+  readonly value: T
+  dispose(): void
+}
+
+export function createComputed<T>(fn: () => T, scope: Scope): ComputedSignal<T> {
+  let cachedValue: T | undefined
+  let dirty = true
+  let active = true
+
+  // Subscriber set: effects (or other computeds) that depend on this computed's output
+  const dep: Set<Effect> = new Set()
+
+  // Internal effect: subscribes to fn's source dependencies.
+  // When sources change, run() marks dirty and propagates to downstream subscribers.
+  // It does NOT re-evaluate fn - that happens lazily on next .value read.
+  // Uses a scheduler so dirty is marked synchronously (not deferred to microtask).
+  const effect: Effect = {
+    run() {
+      if (!active || dirty) return
+      dirty = true
+      // Propagate invalidation to subscribers without re-evaluating
+      for (const sub of dep) schedule(sub)
+    },
+    deps: new Set(),
+    active: true,
+    scheduler() { effect.run() },
+  }
+
+  // Initial evaluation: track source dependencies
+  evaluate()
+
+  scope.track(() => {
+    active = false
+    effect.active = false
+    cleanupEffect(effect)
+    queue.delete(effect)
+    dep.clear()
+  })
+
+  function evaluate(): void {
+    cleanupEffect(effect)
+    effectStack.push(activeEffect)
+    activeEffect = effect
+    try {
+      cachedValue = fn()
+      dirty = false
+    } finally {
+      activeEffect = effectStack.pop() ?? null
+    }
+  }
+
+  return {
+    get value(): T {
+      // Track: outer effect subscribes to this computed's output
+      if (activeEffect && activeEffect !== effect) {
+        dep.add(activeEffect)
+        activeEffect.deps.add(dep)
+      }
+      if (dirty && active) evaluate()
+      return cachedValue as T
+    },
+    dispose() {
+      active = false
+      effect.active = false
+      cleanupEffect(effect)
+      queue.delete(effect)
+      dep.clear()
+    },
+  }
 }
 
 // --- Reactive proxy ---

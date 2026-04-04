@@ -1,6 +1,6 @@
 import { BlokRef, isRef, createRef as createRefForInstance } from './ref-proxy'
 import { Scope } from './scope'
-import { createEffect, createProxy, untracked } from './reactive'
+import { createEffect, createProxy, untracked, enterDeferredMode, exitDeferredMode, flushDeferred } from './reactive'
 import {
   ComponentInstance, resolveOnInstance, setOnInstance,
   createInstance, setupWatchers, RESERVED_CONTEXT_KEYS,
@@ -22,6 +22,12 @@ const EVENT_NAMES: Record<string, 1> = {
   keydown: 1, keyup: 1, keypress: 1, input: 1, change: 1, submit: 1, focus: 1, blur: 1,
   scroll: 1, resize: 1, touchstart: 1, touchend: 1, touchmove: 1,
   dragstart: 1, dragend: 1, dragover: 1, dragleave: 1, drop: 1,
+}
+
+// Resolve a `when` condition: supports function form ($) => expr, refs, and static values
+function resolveCondition(val: any, ctx: RenderCtx): any {
+  if (typeof val === 'function') return val(ctx.inst.context)
+  return resolve(val, ctx)
 }
 
 // Resolve a ref (or static value) to its current value
@@ -66,6 +72,32 @@ function resolveWrite(ref: BlokRef, ctx: RenderCtx, value: any): void {
   }
 
   setOnInstance(ctx.inst, path, value)
+}
+
+// Shallow comparison for each-item updates: avoids bumping the per-row signal
+// when a computed returns new objects whose own-property values are unchanged.
+function shallowEqual(a: any, b: any): boolean {
+  if (a === b) return true
+  if (a == null || b == null || typeof a !== 'object' || typeof b !== 'object') return false
+
+  const isArr = Array.isArray(a)
+  if (isArr !== Array.isArray(b)) return false
+  if (isArr) {
+    if (a.length !== b.length) return false
+    for (let i = 0; i < a.length; i++) { if (a[i] !== b[i]) return false }
+    return true
+  }
+
+  const protoA = Object.getPrototypeOf(a)
+  if (protoA !== Object.getPrototypeOf(b)) return false
+  if (protoA !== null && protoA !== Object.prototype) return false // non-plain objects: fall through
+
+  const keysA = Object.keys(a)
+  if (keysA.length !== Object.keys(b).length) return false
+  for (let i = 0; i < keysA.length; i++) {
+    if (a[keysA[i]] !== b[keysA[i]]) return false
+  }
+  return true
 }
 
 // Classify a template node
@@ -151,7 +183,7 @@ function renderConditionalElement(tag: string, opts: Record<string, any>, ctx: R
   let childScope: Scope | null = null
 
   createEffect(() => {
-    const show = !!resolve(condRef, ctx)
+    const show = !!resolveCondition(condRef, ctx)
 
     if (childScope) { childScope.dispose(); childScope = null }
     if (currentEl) { currentEl.remove(); currentEl = null }
@@ -183,7 +215,7 @@ function renderWhen(tpl: any, ctx: RenderCtx): Node[] {
   let initialNodes: Node[] | null = null as Node[] | null
 
   createEffect(() => {
-    const show = !!resolve(condRef, ctx)
+    const show = !!resolveCondition(condRef, ctx)
 
     if (childScope) { childScope.dispose(); childScope = null }
     // Marker-based cleanup: removes all nodes between markers including
@@ -263,9 +295,11 @@ function renderEach(tpl: any, ctx: RenderCtx): Node[] {
         key, ei, eiEnd, initNodes, scope: itemScope,
         setIndex(i: number) { currentIndex = i },
         updateItem(newItem: any) {
-          if (newItem !== cachedItem) {
+          if (!shallowEqual(newItem, cachedItem)) {
             cachedItem = newItem
             signal.v++ // triggers all per-row effects to re-read from new item
+          } else {
+            cachedItem = newItem // keep latest reference without triggering
           }
         },
       }
@@ -331,11 +365,14 @@ function renderEach(tpl: any, ctx: RenderCtx): Node[] {
         startMarker.nextSibling.remove()
       }
       currentEntries = []
+      const useDeferred = items.length > 32
+      if (useDeferred) enterDeferredMode()
       for (let i = 0; i < items.length; i++) {
         const entry = renderItem(items[i], i)
         if (endMarker.parentNode) insertEntry(entry, endMarker)
         currentEntries.push(entry)
       }
+      if (useDeferred && exitDeferredMode()) flushDeferred()
       return
     }
 
@@ -352,6 +389,14 @@ function renderEach(tpl: any, ctx: RenderCtx): Node[] {
     const reused = new Set<any>()
     let orderChanged = newKeys.length !== currentEntries.length
 
+    // Count new items to decide on deferred mode
+    let newItemCount = 0
+    for (let i = 0; i < items.length; i++) {
+      if (!oldByKey.has(keyProp && items[i] != null ? items[i][keyProp] : i)) newItemCount++
+    }
+    const useDeferred = newItemCount > 32
+    if (useDeferred) enterDeferredMode()
+
     for (let i = 0; i < items.length; i++) {
       const k = newKeys[i]
       const old = oldByKey.get(k)
@@ -367,6 +412,8 @@ function renderEach(tpl: any, ctx: RenderCtx): Node[] {
         newEntries.push(renderItem(items[i], i))
       }
     }
+
+    if (useDeferred && exitDeferredMode()) flushDeferred()
 
     // Dispose + remove old entries not reused (marker-based)
     for (const entry of currentEntries) {

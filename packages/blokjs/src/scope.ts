@@ -2,6 +2,7 @@ export class Scope {
   private unsubs: (() => void)[] = []
   private children: Scope[] = []
   private parent: Scope | null = null
+  disposed = false
 
   track(unsub: () => void): void {
     this.unsubs.push(unsub)
@@ -15,6 +16,7 @@ export class Scope {
   }
 
   dispose(): void {
+    this.disposed = true
     const children = [...this.children]
     for (const c of children) {
       c.parent = null

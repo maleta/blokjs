@@ -146,6 +146,10 @@ Views are plain objects. The `$` proxy creates reactive references resolved at r
 { when: $.isLoggedIn, children: [{ p: 'Welcome!' }] }
 { when: $.not.isLoggedIn, children: [{ p: 'Please log in' }] }
 
+// Function form - for expressions with operators
+{ when: ($) => !$.isLoggedIn, children: [{ p: 'Please log in' }] }
+{ when: ($) => $.count > 0 && $.isReady, children: [{ p: 'Go!' }] }
+
 // Loops
 { each: $.items, as: 'item', key: 'id', children: [
   { li: { text: $.item.name } }

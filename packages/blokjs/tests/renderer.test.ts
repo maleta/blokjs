@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { mount, component } from '../src/index'
+import { mount, component, store } from '../src/index'
 
 function flush(): Promise<void> {
   return new Promise((r) => queueMicrotask(r))
@@ -323,6 +323,218 @@ describe('list rendering', () => {
     expect(lisAfter[0].textContent).toBe('gamma')
     expect(lisAfter[1].textContent).toBe('alpha')
     expect(lisAfter[2].textContent).toBe('beta')
+  })
+})
+
+// ---- Shallow equality in keyed each ----
+
+describe('keyed each with shallow equality', () => {
+  it('does not re-trigger inner effects when item content is unchanged', async () => {
+    let computeCount = 0
+    const { el } = mountApp({
+      state: {
+        items: [
+          { id: 1, label: 'A' },
+          { id: 2, label: 'B' },
+        ],
+      },
+      computed: {
+        // Returns new objects every time, but with same content
+        mapped() {
+          computeCount++
+          return this.items.map((i: any) => ({ id: i.id, label: i.label }))
+        },
+      },
+      methods: {
+        bump() {
+          // Trigger recomputation by replacing items with identical content
+          this.items = this.items.map((i: any) => ({ ...i }))
+        },
+      },
+      view: ($: any) => ({
+        div: {
+          children: [
+            { each: $.mapped, as: 'item', key: 'id', children: [
+              { span: $.item.label },
+            ]},
+            { button: { text: 'bump', click: 'bump' } },
+          ],
+        },
+      }),
+    })
+
+    const spansBefore = Array.from(el.querySelectorAll('span'))
+    expect(spansBefore.map(s => s.textContent)).toEqual(['A', 'B'])
+
+    // Grab DOM node references
+    const nodeA = spansBefore[0]
+    const nodeB = spansBefore[1]
+
+    el.querySelector('button')!.click()
+    await flush()
+
+    const spansAfter = Array.from(el.querySelectorAll('span'))
+    expect(spansAfter.map(s => s.textContent)).toEqual(['A', 'B'])
+    // DOM nodes should be identical - no re-render triggered
+    expect(spansAfter[0]).toBe(nodeA)
+    expect(spansAfter[1]).toBe(nodeB)
+  })
+
+  it('re-triggers when item content actually changes', async () => {
+    const { el } = mountApp({
+      state: {
+        items: [
+          { id: 1, label: 'A' },
+          { id: 2, label: 'B' },
+        ],
+      },
+      computed: {
+        mapped() {
+          return this.items.map((i: any) => ({ id: i.id, label: i.label }))
+        },
+      },
+      methods: {
+        change() {
+          this.items = [
+            { id: 1, label: 'X' },
+            { id: 2, label: 'B' },
+          ]
+        },
+      },
+      view: ($: any) => ({
+        div: {
+          children: [
+            { each: $.mapped, as: 'item', key: 'id', children: [
+              { span: $.item.label },
+            ]},
+            { button: { text: 'change', click: 'change' } },
+          ],
+        },
+      }),
+    })
+
+    expect(el.querySelectorAll('span')[0].textContent).toBe('A')
+
+    el.querySelector('button')!.click()
+    await flush()
+
+    expect(el.querySelectorAll('span')[0].textContent).toBe('X')
+    expect(el.querySelectorAll('span')[1].textContent).toBe('B')
+  })
+})
+
+// ---- Large lists (deferred effects) ----
+
+describe('large each lists (>32 items, deferred effects)', () => {
+  it('renders all items correctly', async () => {
+    const items = Array.from({ length: 50 }, (_, i) => ({ id: i, label: `item-${i}` }))
+    const { el } = mountApp({
+      state: { items },
+      view: ($: any) => ({
+        div: {
+          children: [
+            { each: $.items, as: 'item', key: 'id', children: [
+              { span: $.item.label },
+            ]},
+          ],
+        },
+      }),
+    })
+
+    const spans = el.querySelectorAll('span')
+    expect(spans.length).toBe(50)
+    expect(spans[0].textContent).toBe('item-0')
+    expect(spans[49].textContent).toBe('item-49')
+  })
+
+  it('becomes reactive after deferred flush', async () => {
+    const items = Array.from({ length: 40 }, (_, i) => ({ id: i, label: `v1-${i}` }))
+    const { el } = mountApp({
+      state: { items },
+      methods: {
+        update() {
+          this.items = this.items.map((it: any) => ({ ...it, label: it.label.replace('v1', 'v2') }))
+        },
+      },
+      view: ($: any) => ({
+        div: {
+          children: [
+            { each: $.items, as: 'item', key: 'id', children: [
+              { span: $.item.label },
+            ]},
+            { button: { text: 'update', click: 'update' } },
+          ],
+        },
+      }),
+    })
+
+    // Wait for deferred effects to flush (rAF + microtask)
+    await new Promise(r => setTimeout(r, 50))
+
+    el.querySelector('button')!.click()
+    await flush()
+
+    const spans = el.querySelectorAll('span')
+    expect(spans[0].textContent).toBe('v2-0')
+    expect(spans[39].textContent).toBe('v2-39')
+  })
+
+  it('when blocks inside large each render correctly', () => {
+    const items = Array.from({ length: 40 }, (_, i) => ({
+      id: i, label: `item-${i}`, active: i % 2 === 0,
+    }))
+    const { el } = mountApp({
+      state: { items },
+      view: ($: any) => ({
+        div: {
+          children: [
+            { each: $.items, as: 'item', key: 'id', children: [
+              { div: { children: [
+                { span: $.item.label },
+                { when: $.item.active, children: [
+                  { strong: 'active' },
+                ]},
+              ]}},
+            ]},
+          ],
+        },
+      }),
+    })
+
+    // All items render
+    expect(el.querySelectorAll('span').length).toBe(40)
+    // Only even items have active badge
+    expect(el.querySelectorAll('strong').length).toBe(20)
+  })
+
+  it('nested each (each inside each) works with deferred mode', () => {
+    const groups = Array.from({ length: 35 }, (_, g) => ({
+      id: g,
+      name: `group-${g}`,
+      items: [{ id: `${g}-a`, val: 'A' }, { id: `${g}-b`, val: 'B' }],
+    }))
+    const { el } = mountApp({
+      state: { groups },
+      view: ($: any) => ({
+        div: {
+          children: [
+            { each: $.groups, as: 'g', key: 'id', children: [
+              { div: { class: 'group', children: [
+                { h3: $.g.name },
+                { each: $.g.items, as: 'item', key: 'id', children: [
+                  { span: $.item.val },
+                ]},
+              ]}},
+            ]},
+          ],
+        },
+      }),
+    })
+
+    expect(el.querySelectorAll('.group').length).toBe(35)
+    expect(el.querySelectorAll('span').length).toBe(70) // 35 groups * 2 items
+    expect(el.querySelectorAll('h3')[0].textContent).toBe('group-0')
+    expect(el.querySelectorAll('h3')[34].textContent).toBe('group-34')
   })
 })
 
@@ -850,5 +1062,182 @@ describe('nested when blocks', () => {
     el.querySelector('#outer')!.click()
     await flush()
     expect(root.querySelectorAll('b').length).toBe(0)
+  })
+})
+
+// ---- Function-form when ----
+
+describe('function-form when', () => {
+  it('negation: when: ($) => !$.visible', async () => {
+    const { el } = mountApp({
+      state: { visible: true },
+      methods: {
+        toggle() { this.visible = !this.visible },
+      },
+      view: ($: any) => ({
+        div: { children: [
+          { when: ($: any) => !$.visible, children: [{ span: 'hidden-content' }] },
+          { button: { text: 'toggle', click: 'toggle' } },
+        ] },
+      }),
+    })
+
+    expect(el.querySelector('span')).toBeNull()
+
+    el.querySelector('button')!.click()
+    await flush()
+
+    expect(el.querySelector('span')!.textContent).toBe('hidden-content')
+
+    el.querySelector('button')!.click()
+    await flush()
+
+    expect(el.querySelector('span')).toBeNull()
+  })
+
+  it('comparison: when: ($) => $.count > 0', async () => {
+    const { el } = mountApp({
+      state: { count: 0 },
+      methods: {
+        inc() { this.count++ },
+      },
+      view: ($: any) => ({
+        div: { children: [
+          { when: ($: any) => $.count > 0, children: [{ span: 'positive' }] },
+          { button: { text: 'inc', click: 'inc' } },
+        ] },
+      }),
+    })
+
+    expect(el.querySelector('span')).toBeNull()
+
+    el.querySelector('button')!.click()
+    await flush()
+
+    expect(el.querySelector('span')!.textContent).toBe('positive')
+  })
+
+  it('compound: when: ($) => $.a && $.b', async () => {
+    const { el } = mountApp({
+      state: { a: false, b: false },
+      methods: {
+        setA() { this.a = true },
+        setB() { this.b = true },
+      },
+      view: ($: any) => ({
+        div: { children: [
+          { when: ($: any) => $.a && $.b, children: [{ span: 'both' }] },
+          { button: { id: 'a', text: 'a', click: 'setA' } },
+          { button: { id: 'b', text: 'b', click: 'setB' } },
+        ] },
+      }),
+    })
+
+    expect(el.querySelector('span')).toBeNull()
+
+    el.querySelector('#a')!.click()
+    await flush()
+    expect(el.querySelector('span')).toBeNull()
+
+    el.querySelector('#b')!.click()
+    await flush()
+    expect(el.querySelector('span')!.textContent).toBe('both')
+  })
+
+  it('element-level: { div: { when: ($) => $.count > 5, text: "high" } }', async () => {
+    const { el } = mountApp({
+      state: { count: 0 },
+      methods: {
+        set6() { this.count = 6 },
+      },
+      view: ($: any) => ({
+        div: { children: [
+          { div: { when: ($: any) => $.count > 5, text: 'high' } },
+          { button: { text: 'set', click: 'set6' } },
+        ] },
+      }),
+    })
+
+    expect(el.textContent).not.toContain('high')
+
+    el.querySelector('button')!.click()
+    await flush()
+
+    expect(el.textContent).toContain('high')
+  })
+
+  it('reactivity: re-evaluates when dependencies change', async () => {
+    const { el } = mountApp({
+      state: { x: 1, y: 10 },
+      methods: {
+        update() { this.x = 5; this.y = 3 },
+      },
+      view: ($: any) => ({
+        div: { children: [
+          { when: ($: any) => $.x > $.y, children: [{ span: 'x-wins' }] },
+          { button: { text: 'go', click: 'update' } },
+        ] },
+      }),
+    })
+
+    expect(el.querySelector('span')).toBeNull()
+
+    el.querySelector('button')!.click()
+    await flush()
+
+    expect(el.querySelector('span')!.textContent).toBe('x-wins')
+  })
+
+  it('store access: when: ($) => $.store.auth.loggedIn', async () => {
+    store('auth', {
+      state: { loggedIn: false },
+      methods: {
+        login() { this.loggedIn = true },
+      },
+    })
+
+    const { el } = mountApp({
+      methods: {
+        doLogin() { this.store.auth.login() },
+      },
+      view: ($: any) => ({
+        div: { children: [
+          { when: ($: any) => $.store.auth.loggedIn, children: [{ span: 'welcome' }] },
+          { button: { text: 'login', click: 'doLogin' } },
+        ] },
+      }),
+    })
+
+    expect(el.querySelector('span')).toBeNull()
+
+    el.querySelector('button')!.click()
+    await flush()
+
+    expect(el.querySelector('span')!.textContent).toBe('welcome')
+  })
+
+  it('mixed: function-form and ref-form coexist', async () => {
+    const { el } = mountApp({
+      state: { a: true, b: false },
+      methods: {
+        toggle() { this.a = !this.a; this.b = !this.b },
+      },
+      view: ($: any) => ({
+        div: { children: [
+          { when: $.a, children: [{ span: { class: 'ref', text: 'ref-form' } }] },
+          { when: ($: any) => $.b, children: [{ span: { class: 'fn', text: 'fn-form' } }] },
+          { button: { text: 'toggle', click: 'toggle' } },
+        ] },
+      }),
+    })
+
+    expect(el.querySelector('.ref')!.textContent).toBe('ref-form')
+    expect(el.querySelector('.fn')).toBeNull()
+
+    el.querySelector('button')!.click()
+    await flush()
+
+    expect(el.querySelector('.ref')).toBeNull()
+    expect(el.querySelector('.fn')!.textContent).toBe('fn-form')
   })
 })

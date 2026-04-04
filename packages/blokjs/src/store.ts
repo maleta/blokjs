@@ -1,4 +1,5 @@
-import { createProxy } from './reactive'
+import { createProxy, createComputed, type ComputedSignal } from './reactive'
+import { Scope } from './scope'
 import { wrapAsync } from './async-tracking'
 
 export interface StoreDef {
@@ -16,6 +17,8 @@ export interface StoreInstance {
   errorData: Record<string, any>
   errorProxy: any
   proxy: any
+  scope: Scope
+  computedSignals: Map<string, ComputedSignal>
 }
 
 export function createStoreInstance(name: string, def: StoreDef): StoreInstance {
@@ -35,6 +38,8 @@ export function createStoreInstance(name: string, def: StoreDef): StoreInstance 
 
   const asyncCounts = new Map<string, number>()
   const methodCache = new Map<string, Function>()
+  const storeScope = new Scope()
+  const computedSignals = new Map<string, ComputedSignal>()
 
   const proxy: any = new Proxy({} as any, {
     get(_, key) {
@@ -59,6 +64,8 @@ export function createStoreInstance(name: string, def: StoreDef): StoreInstance 
       }
 
       if (def.computed && k in def.computed) {
+        const signal = computedSignals.get(k)
+        if (signal) return signal.value
         return def.computed[k].call(proxy)
       }
 
@@ -76,7 +83,14 @@ export function createStoreInstance(name: string, def: StoreDef): StoreInstance 
     },
   })
 
-  return { name, stateData, stateProxy, loadingData, loadingProxy, errorData, errorProxy, proxy }
+  // Initialize computed signals after proxy is built (computed fns use proxy as `this`)
+  if (def.computed) {
+    for (const [key, fn] of Object.entries(def.computed)) {
+      computedSignals.set(key, createComputed(() => fn.call(proxy), storeScope))
+    }
+  }
+
+  return { name, stateData, stateProxy, loadingData, loadingProxy, errorData, errorProxy, proxy, scope: storeScope, computedSignals }
 }
 
 export function createStoreProxy(stores: Map<string, StoreInstance>): any {

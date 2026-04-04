@@ -339,31 +339,44 @@ app.destroy()`),
               { p: { children: [
                 'The ',
                 ic('target'),
-                ' can be a CSS selector string or an HTMLElement. Calling ',
-                ic('blok.mount()'),
-                ' again without first calling ',
-                ic('destroy()'),
-                ' throws an error. After ',
+                ' can be a CSS selector string or an HTMLElement. After ',
                 ic('destroy()'),
                 ', all component and store registrations are lost - re-register them before mounting again.',
               ] } },
+
+              sub('multi-mount', 'Multiple Mounts'),
+              { p: { children: [
+                'Multiple ',
+                ic('blok.mount()'),
+                ' calls create independent app instances. By default they share the global component registry and store state:',
+              ] } },
+              c(`// Shared (default) - both see the same stores and components
+blok.mount('#app1', { view: ($) => ({ MyWidget: {} }) })
+blok.mount('#app2', { view: ($) => ({ MyWidget: {} }) })
+
+// Isolated - own store state, copied component registry
+blok.mount('#sidebar', {
+  isolated: true,
+  view: ($) => ({ Nav: {} })
+})`),
+              note('Only one mount can declare routes. A second mount with routes throws an error.'),
+
               sub('mount-options', 'Root-Only Options'),
               { p: { children: [
                 ic('blok.mount()'),
-                ' accepts all component definition options (props, state, computed, watch, methods, mount, unmount, view) plus these root-only options for ',
-                { a: { href: '#router', text: 'routing' } },
-                ':',
+                ' accepts all component definition options (props, state, computed, watch, methods, mount, unmount, view) plus these root-only options:',
               ] } },
               tbl(['Option', 'Type', 'Description'], [
                 [ic('routes'), ic('RouteConfig[]'), 'Route definitions for client-side routing'],
                 [ic('guards'), ic('Record<string, fn>'), 'Named route guard functions'],
                 [ic('mode'), ic("'hash' | 'history' | 'auto'"), "Router mode (default: 'auto'). 'auto' uses hash for file:// URLs, history otherwise"],
+                [ic('isolated'), ic('boolean'), 'When true, creates a fully sandboxed instance with its own store state and a copied component registry'],
               ]),
             ),
 
             // --- blok.store() ---
             sec('blokjs-store', 'blok.store(name, def)',
-              p('Registers a named store with structured state, computed properties, and methods. Call before blok.mount().'),
+              p('Registers a named store with structured state, computed properties, and methods. Call before blok.mount(). Calling blok.store() with an already-registered name logs a warning and skips the duplicate.'),
               c(`blok.store('auth', {
   state: { user: null, token: null },
 
@@ -501,7 +514,7 @@ this.store.auth.error.login    // rejection value (typically Error) or null`),
 
             // --- Computed ---
             sec('computed', 'Computed',
-              p('Derived getter functions. Not cached — the function re-evaluates every time it is read. Keep them lightweight.'),
+              p('Derived getter functions. Computed values are lazy and memoized - they only re-evaluate when a tracked dependency changes, and cache the result until then.'),
               c(`computed: {
   filtered() {
     return this.items.filter(i => i.name.includes(this.filter))
@@ -521,16 +534,23 @@ this.store.auth.error.login    // rejection value (typically Error) or null`),
 
             // --- Watch ---
             sec('watch', 'Watch',
-              p('React to state, prop, or computed changes. The key is a top-level property name to watch.'),
+              p('React to state, prop, or computed changes. The key is a property name or dot-notation path to watch.'),
               c(`watch: {
   filter(newVal, oldVal) {
     console.log(\`filter changed: \${oldVal} -> \${newVal}\`)
   },
   count(val) {
     if (val > 100) this.count = 100
+  },
+  // Dot-notation paths work for nested state, store, and route
+  'route.path'(newPath) {
+    console.log('navigated to', newPath)
+  },
+  'store.auth.user'(user) {
+    console.log('auth user changed', user)
   }
 }`),
-              note('Watch only tracks top-level state/prop names (no nested paths like "a.b"). Comparison uses reference equality (===), so mutating an object/array in-place won\'t trigger the watcher - reassign the whole value instead.'),
+              note('Comparison uses reference equality (===), so mutating an object/array in-place won\'t trigger the watcher - reassign the whole value instead.'),
               p('To trigger a watcher on nested changes, reassign the top-level value:'),
               c(`methods: {
   updateUserName(name) {
@@ -984,34 +1004,68 @@ dragstart, dragend, dragover, dragleave, drop`),
 ] } }`),
               p('The element and all its children are created/destroyed based on the condition.'),
 
-              sub('when-computed', 'Complex Conditions'),
+              sub('when-fn', 'Function Form'),
               { p: { children: [
-                ic('when'),
-                ' only accepts refs (',
-                ic('$'),
-                ' paths) — not JavaScript expressions. You cannot use operators like ',
+                'For expressions with operators (',
                 ic('!'),
                 ', ',
+                ic('&&'),
+                ', ',
                 ic('>'),
-                ', or method calls on refs.',
+                ', etc.), pass a function to ',
+                ic('when'),
+                '. The function receives the reactive component context as ',
+                ic('$'),
+                ' and dependency tracking is automatic:',
               ] } },
-              c(`// These do NOT work:
+              c(`{ when: ($) => !$.loading, children: [
+  { p: 'Content loaded!' }
+] }
+
+{ when: ($) => $.count > 10, children: [
+  { p: 'Many items!' }
+] }
+
+{ when: ($) => $.isLoaded && $.items.length, children: [
+  { p: 'Has items' }
+] }
+
+// Works with stores too
+{ when: ($) => $.store.auth.isLoggedIn || $.isGuest, children: [
+  { p: 'Has access' }
+] }
+
+// Element-level
+{ div: { when: ($) => $.count > 5, text: 'High count' } }`),
+
+              sub('when-computed', 'Ref Limitations'),
+              { p: { children: [
+                'When using the ref form (without a function), ',
+                ic('when'),
+                ' only accepts ',
+                ic('$'),
+                ' paths - not JavaScript expressions. Operators evaluate against the proxy object, not the value:',
+              ] } },
+              c(`// These do NOT work with refs:
 { when: !$.loading, ... }           // always false (! on a proxy object)
 { when: $.count > 10, ... }         // compares proxy > 10, not the value
 
-// These DO work:
-{ when: $.items.length, ... }       // resolves to the array's length (truthy if non-empty)
+// Use function form instead:
+{ when: ($) => !$.loading, ... }
+{ when: ($) => $.count > 10, ... }
 
-// Use $.not for negation:
+// Or use $.not for simple negation:
 { when: $.not.loading, ... }
 
-// For complex conditions, use a computed:
+// Ref form works for simple truthy/falsy checks:
+{ when: $.items.length, ... }       // resolves to the array's length
+
+// For very complex conditions, a computed is still a good option:
 computed: {
   hasLongNames() {
     return this.users.filter(a => a.name.length > 10).length > 10
   }
 }
-// Then in the template:
 { when: $.hasLongNames, children: [...] }`),
             ),
 
@@ -1342,7 +1396,7 @@ NotFound     — navigate(-1) back
                 [ic('model (input, select, textarea, checkbox)'), 'Login, Board, TaskDetail'],
                 [ic('events (click, submit, drag*)'), 'Forms, buttons, TaskCard drag, TaskColumn drop zone'],
                 [ic('event modifiers (stop, prevent)'), 'Board modal (stop), TaskColumn drag (prevent), TaskDetail (prevent)'],
-                [ic('when + $.not'), 'Loading, modal, auth nav, empty states'],
+                [ic('when + $.not + function form'), 'Loading, modal, auth nav, empty states'],
                 [ic('each + key + nested'), 'Columns \u2192 Tasks'],
                 [ic('components + on_ events'), 'TaskCard \u2192 TaskColumn \u2192 Board'],
                 [ic('slots'), 'CardWrapper wraps heading in Board'],

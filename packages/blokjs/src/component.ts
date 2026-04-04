@@ -1,5 +1,5 @@
 import { BlokRef, isRef } from './ref-proxy'
-import { createProxy, setByPath, untracked, createEffect } from './reactive'
+import { createProxy, setByPath, untracked, createEffect, createComputed, type ComputedSignal } from './reactive'
 import { Scope } from './scope'
 import { wrapAsync } from './async-tracking'
 import type { StoreInstance } from './store'
@@ -64,6 +64,7 @@ export interface ComponentInstance {
   sharedProps: Map<string, SharedProp>
   staticProps: Map<string, any>
   computedDefs: Record<string, (this: any) => any>
+  computedSignals: Map<string, ComputedSignal>
   context: any
   el: HTMLElement | null
   refs: Record<string, HTMLElement>
@@ -121,6 +122,7 @@ export function createInstance(
     sharedProps: new Map(),
     staticProps: new Map(),
     computedDefs: def.computed || {},
+    computedSignals: new Map(),
     context: null!,
     el: null,
     refs: {},
@@ -143,6 +145,12 @@ export function createInstance(
 
   // Build context (the `this` for methods/lifecycle)
   inst.context = createContext(inst)
+
+  // Initialize memoized computed signals (must be after context creation)
+  for (const key of Object.keys(inst.computedDefs)) {
+    const fn = inst.computedDefs[key]
+    inst.computedSignals.set(key, createComputed(() => fn.call(inst.context), inst.scope))
+  }
 
   return inst
 }
@@ -236,6 +244,8 @@ function createContext(inst: ComponentInstance): any {
 }
 
 export function evalComputed(inst: ComponentInstance, key: string): any {
+  const signal = inst.computedSignals.get(key)
+  if (signal) return signal.value
   const fn = inst.computedDefs[key]
   if (!fn) return undefined
   return fn.call(inst.context)

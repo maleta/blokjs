@@ -2,6 +2,10 @@ import { describe, it, expect, vi } from 'vitest'
 import {
   createProxy,
   createEffect,
+  createComputed,
+  enterDeferredMode,
+  exitDeferredMode,
+  flushDeferred,
   untracked,
   setByPath,
   pauseTracking,
@@ -429,5 +433,180 @@ describe('pauseTracking / resumeTracking', () => {
     await flush()
     expect(spy).toHaveBeenCalledWith(109)
     s.dispose()
+  })
+})
+
+// ---- createComputed ----
+
+describe('createComputed', () => {
+  it('caches value on repeated access', () => {
+    const s = new Scope()
+    const p = createProxy({ count: 1 })
+    const spy = vi.fn(() => p.count * 2)
+    const c = createComputed(spy, s)
+
+    expect(spy).toHaveBeenCalledTimes(1) // initial evaluation
+    expect(c.value).toBe(2)
+    expect(c.value).toBe(2)
+    expect(c.value).toBe(2)
+    expect(spy).toHaveBeenCalledTimes(1) // still only 1 call
+    s.dispose()
+  })
+
+  it('re-evaluates when dependency changes', async () => {
+    const s = new Scope()
+    const p = createProxy({ count: 1 })
+    const spy = vi.fn(() => p.count * 2)
+    const c = createComputed(spy, s)
+
+    expect(c.value).toBe(2)
+    expect(spy).toHaveBeenCalledTimes(1)
+
+    p.count = 5
+    // Computed is lazy: doesn't evaluate until read
+    expect(spy).toHaveBeenCalledTimes(1)
+
+    // Reading after dep change triggers re-evaluation
+    await flush()
+    expect(c.value).toBe(10)
+    expect(spy).toHaveBeenCalledTimes(2)
+    s.dispose()
+  })
+
+  it('is lazy - does not evaluate until read after invalidation', async () => {
+    const s = new Scope()
+    const p = createProxy({ x: 1 })
+    const spy = vi.fn(() => p.x + 10)
+    const c = createComputed(spy, s)
+
+    expect(spy).toHaveBeenCalledTimes(1) // initial
+
+    p.x = 2
+    await flush()
+    // Computed was marked dirty but NOT re-evaluated (nobody read it)
+    expect(spy).toHaveBeenCalledTimes(1)
+
+    // Reading triggers lazy evaluation
+    expect(c.value).toBe(12)
+    expect(spy).toHaveBeenCalledTimes(2)
+    s.dispose()
+  })
+
+  it('effects that read computed re-run when computed output changes', async () => {
+    const s = new Scope()
+    const p = createProxy({ n: 3 })
+    const c = createComputed(() => p.n * 2, s)
+
+    const effectSpy = vi.fn()
+    createEffect(() => { effectSpy(c.value) }, s)
+    expect(effectSpy).toHaveBeenCalledWith(6)
+
+    p.n = 10
+    await flush()
+    expect(effectSpy).toHaveBeenCalledWith(20)
+    s.dispose()
+  })
+
+  it('multiple effects share one computed evaluation', async () => {
+    const s = new Scope()
+    const p = createProxy({ v: 1 })
+    const spy = vi.fn(() => p.v + 100)
+    const c = createComputed(spy, s)
+
+    createEffect(() => { c.value }, s)
+    createEffect(() => { c.value }, s)
+    expect(spy).toHaveBeenCalledTimes(1) // only one evaluation, shared by both effects
+
+    p.v = 2
+    await flush()
+    expect(spy).toHaveBeenCalledTimes(2) // one re-evaluation, not two
+    s.dispose()
+  })
+
+  it('disposes cleanly on scope dispose', async () => {
+    const s = new Scope()
+    const p = createProxy({ x: 1 })
+    const spy = vi.fn(() => p.x)
+    const c = createComputed(spy, s)
+
+    expect(c.value).toBe(1)
+    s.dispose()
+
+    p.x = 99
+    await flush()
+    // After dispose, computed should not re-evaluate
+    expect(spy).toHaveBeenCalledTimes(1)
+  })
+
+  it('chained computeds work correctly', async () => {
+    const s = new Scope()
+    const p = createProxy({ base: 2 })
+    const doubled = createComputed(() => p.base * 2, s)
+    const quadrupled = createComputed(() => doubled.value * 2, s)
+
+    expect(quadrupled.value).toBe(8)
+
+    p.base = 5
+    await flush()
+    expect(quadrupled.value).toBe(20)
+    expect(doubled.value).toBe(10)
+    s.dispose()
+  })
+})
+
+// ---- Deferred effects ----
+
+describe('deferred effects', () => {
+  it('runs fn untracked initially and defers real effect', async () => {
+    const s = new Scope()
+    const p = createProxy({ x: 1 })
+    const spy = vi.fn()
+
+    enterDeferredMode()
+    createEffect(() => { spy(p.x) }, s)
+    exitDeferredMode()
+
+    // fn ran once (untracked initial run)
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(spy).toHaveBeenCalledWith(1)
+
+    // Changing dep should NOT trigger (no tracking yet)
+    p.x = 99
+    await flush()
+    expect(spy).toHaveBeenCalledTimes(1)
+
+    // Flush deferred to create real tracked effects
+    flushDeferred()
+    // Wait for rAF + microtask (happy-dom may use rAF path)
+    await new Promise(r => setTimeout(r, 20))
+
+    // Now the real effect ran (tracked)
+    expect(spy).toHaveBeenCalledTimes(2)
+
+    // Now changes should propagate
+    p.x = 42
+    await flush()
+    expect(spy).toHaveBeenCalledTimes(3)
+    expect(spy).toHaveBeenLastCalledWith(42)
+    s.dispose()
+  })
+
+  it('skips effects for disposed scopes during flush', async () => {
+    const s = new Scope()
+    const p = createProxy({ x: 1 })
+    const spy = vi.fn()
+
+    enterDeferredMode()
+    createEffect(() => { spy(p.x) }, s)
+    exitDeferredMode()
+
+    expect(spy).toHaveBeenCalledTimes(1) // initial untracked run
+
+    s.dispose()
+    flushDeferred()
+    await flush()
+
+    // Effect should NOT be created (scope was disposed)
+    expect(spy).toHaveBeenCalledTimes(1)
   })
 })

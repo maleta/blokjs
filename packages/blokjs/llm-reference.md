@@ -98,6 +98,24 @@ The `view` function receives `$` (a reactive reference builder) and returns a pl
 { when: $.not.isVisible, children: [
   { p: 'Shown when falsy' }
 ]}
+
+// Function form - for expressions with operators (!, &&, ||, >, ternary, etc.)
+// $ here is the reactive component context (this), not the ref-building proxy
+{ when: ($) => !$.isVisible, children: [
+  { p: 'Shown when falsy' }
+]}
+
+{ when: ($) => $.count > 0, children: [
+  { p: 'Positive count' }
+]}
+
+{ when: ($) => $.isLoaded && $.items.length, children: [
+  { p: 'Has items' }
+]}
+
+{ when: ($) => $.store.auth.isLoggedIn || $.isGuest, children: [
+  { p: 'Has access' }
+]}
 ```
 
 ### Loops (each)

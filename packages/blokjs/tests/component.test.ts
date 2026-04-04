@@ -475,3 +475,82 @@ describe('setupWatchers', () => {
     ])
   })
 })
+
+// ---- Computed memoization ----
+
+describe('computed memoization', () => {
+  it('caches value on repeated access (does not re-evaluate)', () => {
+    const spy = vi.fn(function (this: any) { return this.count * 2 })
+    const inst = makeInstance({
+      state: { count: 3 },
+      computed: { doubled: spy },
+    })
+
+    expect(inst.context.doubled).toBe(6)
+    expect(inst.context.doubled).toBe(6)
+    expect(inst.context.doubled).toBe(6)
+    // Initial evaluation during signal creation + reads should NOT re-evaluate
+    expect(spy).toHaveBeenCalledTimes(1)
+  })
+
+  it('re-evaluates when state dependency changes', () => {
+    const inst = makeInstance({
+      state: { count: 3 },
+      computed: {
+        doubled() { return this.count * 2 },
+      },
+    })
+
+    expect(inst.context.doubled).toBe(6)
+    inst.context.count = 10
+    expect(inst.context.doubled).toBe(20)
+  })
+
+  it('chained computed: computed reading another computed', () => {
+    const inst = makeInstance({
+      state: { base: 2 },
+      computed: {
+        doubled() { return this.base * 2 },
+        quadrupled() { return this.doubled * 2 },
+      },
+    })
+
+    expect(inst.context.quadrupled).toBe(8)
+    inst.context.base = 5
+    expect(inst.context.quadrupled).toBe(20)
+    expect(inst.context.doubled).toBe(10)
+  })
+
+  it('watch observing a computed fires when computed deps change', async () => {
+    const spy = vi.fn()
+    const inst = makeInstance({
+      state: { count: 1 },
+      computed: {
+        doubled() { return this.count * 2 },
+      },
+      watch: {
+        doubled(newVal: number, oldVal: number) { spy(newVal, oldVal) },
+      },
+    })
+
+    setupWatchers(inst)
+    inst.stateProxy.count = 5
+    await flush()
+
+    expect(spy).toHaveBeenCalledWith(10, 2)
+  })
+
+  it('method can access computed value', () => {
+    const inst = makeInstance({
+      state: { items: [1, 2, 3] },
+      computed: {
+        total() { return this.items.reduce((s: number, n: number) => s + n, 0) },
+      },
+      methods: {
+        getTotal() { return this.total },
+      },
+    })
+
+    expect(inst.context.getTotal()).toBe(6)
+  })
+})
