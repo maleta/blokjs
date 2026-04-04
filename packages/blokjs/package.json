@@ -1,6 +1,6 @@
 {
   "name": "@maleta/blokjs",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Zero-build, zero-dependency, standalone, reactive, lightweight UI framework",
   "main": "dist/blokjs.js",
   "module": "dist/blokjs.esm.min.js",
