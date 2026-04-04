@@ -3,9 +3,6 @@ import {
   createProxy,
   createEffect,
   createComputed,
-  enterDeferredMode,
-  exitDeferredMode,
-  flushDeferred,
   untracked,
   setByPath,
   pauseTracking,
@@ -554,59 +551,3 @@ describe('createComputed', () => {
   })
 })
 
-// ---- Deferred effects ----
-
-describe('deferred effects', () => {
-  it('runs fn untracked initially and defers real effect', async () => {
-    const s = new Scope()
-    const p = createProxy({ x: 1 })
-    const spy = vi.fn()
-
-    enterDeferredMode()
-    createEffect(() => { spy(p.x) }, s)
-    exitDeferredMode()
-
-    // fn ran once (untracked initial run)
-    expect(spy).toHaveBeenCalledTimes(1)
-    expect(spy).toHaveBeenCalledWith(1)
-
-    // Changing dep should NOT trigger (no tracking yet)
-    p.x = 99
-    await flush()
-    expect(spy).toHaveBeenCalledTimes(1)
-
-    // Flush deferred to create real tracked effects
-    flushDeferred()
-    // Wait for rAF + microtask (happy-dom may use rAF path)
-    await new Promise(r => setTimeout(r, 20))
-
-    // Now the real effect ran (tracked)
-    expect(spy).toHaveBeenCalledTimes(2)
-
-    // Now changes should propagate
-    p.x = 42
-    await flush()
-    expect(spy).toHaveBeenCalledTimes(3)
-    expect(spy).toHaveBeenLastCalledWith(42)
-    s.dispose()
-  })
-
-  it('skips effects for disposed scopes during flush', async () => {
-    const s = new Scope()
-    const p = createProxy({ x: 1 })
-    const spy = vi.fn()
-
-    enterDeferredMode()
-    createEffect(() => { spy(p.x) }, s)
-    exitDeferredMode()
-
-    expect(spy).toHaveBeenCalledTimes(1) // initial untracked run
-
-    s.dispose()
-    flushDeferred()
-    await flush()
-
-    // Effect should NOT be created (scope was disposed)
-    expect(spy).toHaveBeenCalledTimes(1)
-  })
-})

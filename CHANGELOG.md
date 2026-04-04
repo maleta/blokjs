@@ -7,9 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-04-04
+
 ### Added
 
 - Function-form `when` directive - accepts `($) => expr` for reactive expressions with operators (`!`, `&&`, `||`, `>`, ternary, etc.) without needing a computed property
+
+### Removed
+
+- Automatic deferred effects for lists >32 items - single consistent code path for all list sizes
 
 ## [0.2.0] - 2026-04-02
 

@@ -79,13 +79,6 @@ function schedule(effect: Effect): void {
 // --- Public: effects ---
 
 export function createEffect(fn: () => void, scope: Scope): void {
-  if (deferredDepth > 0) {
-    // Deferred: set initial DOM values without tracking, queue real effect for later
-    untracked(fn)
-    deferredQueue.push({ fn, scope })
-    return
-  }
-
   const effect: Effect = {
     run() {
       cleanupEffect(effect)
@@ -100,46 +93,6 @@ export function createEffect(fn: () => void, scope: Scope): void {
   effect.run()
 }
 
-// --- Deferred effect mode ---
-// When enabled, createEffect runs fn once untracked (for initial DOM values)
-// and queues the real tracked effect for later. Used by `each` for large lists.
-
-let deferredDepth = 0
-const deferredQueue: Array<{ fn: () => void; scope: Scope }> = []
-
-export function enterDeferredMode(): void { deferredDepth++ }
-/** Returns true when the outermost deferred scope has exited (safe to flush). */
-export function exitDeferredMode(): boolean {
-  deferredDepth = Math.max(0, deferredDepth - 1)
-  return deferredDepth === 0
-}
-
-export function flushDeferred(chunkSize = 50): void {
-  if (deferredQueue.length === 0) return
-  const pending = deferredQueue.splice(0)
-  let index = 0
-
-  function processChunk(): void {
-    const end = Math.min(index + chunkSize, pending.length)
-    for (; index < end; index++) {
-      const { fn, scope } = pending[index]
-      if (!scope.disposed) createEffect(fn, scope)
-    }
-    if (index < pending.length) {
-      if (typeof requestAnimationFrame !== 'undefined') {
-        requestAnimationFrame(processChunk)
-      } else {
-        queueMicrotask(processChunk)
-      }
-    }
-  }
-
-  if (typeof requestAnimationFrame !== 'undefined') {
-    requestAnimationFrame(processChunk)
-  } else {
-    queueMicrotask(processChunk)
-  }
-}
 
 export function pauseTracking(): void {
   effectStack.push(activeEffect)

@@ -1,6 +1,6 @@
 import { BlokRef, isRef, createRef as createRefForInstance } from './ref-proxy'
 import { Scope } from './scope'
-import { createEffect, createProxy, untracked, enterDeferredMode, exitDeferredMode, flushDeferred } from './reactive'
+import { createEffect, createProxy, untracked } from './reactive'
 import {
   ComponentInstance, resolveOnInstance, setOnInstance,
   createInstance, setupWatchers, RESERVED_CONTEXT_KEYS,
@@ -365,14 +365,11 @@ function renderEach(tpl: any, ctx: RenderCtx): Node[] {
         startMarker.nextSibling.remove()
       }
       currentEntries = []
-      const useDeferred = items.length > 32
-      if (useDeferred) enterDeferredMode()
       for (let i = 0; i < items.length; i++) {
         const entry = renderItem(items[i], i)
         if (endMarker.parentNode) insertEntry(entry, endMarker)
         currentEntries.push(entry)
       }
-      if (useDeferred && exitDeferredMode()) flushDeferred()
       return
     }
 
@@ -389,14 +386,6 @@ function renderEach(tpl: any, ctx: RenderCtx): Node[] {
     const reused = new Set<any>()
     let orderChanged = newKeys.length !== currentEntries.length
 
-    // Count new items to decide on deferred mode
-    let newItemCount = 0
-    for (let i = 0; i < items.length; i++) {
-      if (!oldByKey.has(keyProp && items[i] != null ? items[i][keyProp] : i)) newItemCount++
-    }
-    const useDeferred = newItemCount > 32
-    if (useDeferred) enterDeferredMode()
-
     for (let i = 0; i < items.length; i++) {
       const k = newKeys[i]
       const old = oldByKey.get(k)
@@ -412,8 +401,6 @@ function renderEach(tpl: any, ctx: RenderCtx): Node[] {
         newEntries.push(renderItem(items[i], i))
       }
     }
-
-    if (useDeferred && exitDeferredMode()) flushDeferred()
 
     // Dispose + remove old entries not reused (marker-based)
     for (const entry of currentEntries) {
