@@ -786,6 +786,96 @@ describe('attribute binding', () => {
   })
 })
 
+// ---- Property binding ----
+
+describe('props binding', () => {
+  it('assigns static values as properties, not attributes', () => {
+    const renderRow = (r: unknown) => String(r)
+    const { el } = mountApp({
+      view: () => ({ 'x-table': { props: { rows: [1, 2], open: true, renderRow } } }),
+    })
+
+    const t = el.querySelector('x-table') as any
+    expect(t.rows).toEqual([1, 2])
+    expect(t.open).toBe(true)
+    expect(t.renderRow).toBe(renderRow)
+    expect(t.hasAttribute('rows')).toBe(false)
+    expect(t.hasAttribute('props')).toBe(false)
+  })
+
+  it('re-assigns a ref value when the state changes', async () => {
+    const { el } = mountApp({
+      state: { tree: [{ id: 1 }] },
+      methods: {
+        grow() { this.tree = [...this.tree, { id: 2 }] },
+      },
+      view: ($: any) => ({
+        div: { children: [
+          { 'x-tree': { props: { items: $.tree } } },
+          { button: { text: 'grow', click: 'grow' } },
+        ] },
+      }),
+    })
+
+    const tree = el.querySelector('x-tree') as any
+    expect(tree.items.map((i: any) => i.id)).toEqual([1])
+
+    el.querySelector('button')!.click()
+    await flush()
+
+    expect(tree.items.map((i: any) => i.id)).toEqual([1, 2])
+  })
+
+  it('sets native element properties that have no attribute', async () => {
+    const { el } = mountApp({
+      state: { partial: true },
+      methods: {
+        settle() { this.partial = false },
+      },
+      view: ($: any) => ({
+        div: { children: [
+          { input: { type: 'checkbox', props: { indeterminate: $.partial } } },
+          { button: { text: 'settle', click: 'settle' } },
+        ] },
+      }),
+    })
+
+    const box = el.querySelector('input')!
+    expect(box.indeterminate).toBe(true)
+
+    el.querySelector('button')!.click()
+    await flush()
+
+    expect(box.indeterminate).toBe(false)
+  })
+
+  it('does not track state read inside the element setter', async () => {
+    let assignments = 0
+    class XProbe extends HTMLElement {
+      set data(v: any) { assignments++; void v.length }
+    }
+    customElements.define('x-probe', XProbe)
+
+    const { el } = mountApp({
+      state: { list: [1] },
+      methods: {
+        add() { this.list.push(2) },
+      },
+      view: ($: any) => ({
+        div: { children: [
+          { 'x-probe': { props: { data: $.list } } },
+          { button: { text: 'add', click: 'add' } },
+        ] },
+      }),
+    })
+
+    expect(assignments).toBe(1)
+    el.querySelector('button')!.click()
+    await flush()
+    expect(assignments).toBe(1)
+  })
+})
+
 // ---- Component rendering ----
 
 describe('component rendering', () => {

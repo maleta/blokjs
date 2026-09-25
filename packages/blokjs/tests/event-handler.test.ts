@@ -297,3 +297,64 @@ describe('event handler - argument passing', () => {
     expect(received).toBe(null)
   })
 })
+
+describe('event handler - method refs', () => {
+  it('direct key: click: $.save calls the method with the event', () => {
+    let received: unknown = null
+    const { el } = mountApp({
+      methods: {
+        save(e: Event) { received = e },
+      },
+      view: ($: any) => ({ button: { click: $.save, text: 'go' } }),
+    })
+    el.querySelector('button')!.click()
+    expect(received).toBeInstanceOf(Event)
+  })
+
+  it('on object: custom event on a custom element', () => {
+    let detail: unknown = null
+    const { el } = mountApp({
+      methods: {
+        onPick(e: CustomEvent) { detail = e.detail },
+      },
+      view: ($: any) => ({ 'x-picker': { on: { 'x-pick': $.onPick } } }),
+    })
+    el.querySelector('x-picker')!.dispatchEvent(new CustomEvent('x-pick', { detail: 7 }))
+    expect(detail).toBe(7)
+  })
+
+  it('object syntax: { handler: $.save, stop: true }', () => {
+    let called = false
+    let bubbled = false
+    const { el } = mountApp({
+      methods: {
+        save() { called = true },
+        outer() { bubbled = true },
+      },
+      view: ($: any) => ({
+        div: { click: 'outer', children: [
+          { button: { click: { handler: $.save, stop: true } } },
+        ] },
+      }),
+    })
+    el.querySelector('button')!.click()
+    expect(called).toBe(true)
+    expect(bubbled).toBe(false)
+  })
+
+  it('component event: on_remove: $.handleRemove receives the payload', async () => {
+    component('RemoveBtn', {
+      methods: { go() { this.emit('remove', 'payload-1') } },
+      view: () => ({ button: { click: 'go' } }),
+    })
+    let got: unknown = null
+    const { el } = mountApp({
+      methods: {
+        handleRemove(p: unknown) { got = p },
+      },
+      view: ($: any) => ({ RemoveBtn: { on_remove: $.handleRemove } }),
+    })
+    el.querySelector('button')!.click()
+    expect(got).toBe('payload-1')
+  })
+})

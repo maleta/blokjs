@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { validate, validateComponentDef, validateMountOptions, validateStoreDef, validateTemplate } from '../src/validate'
+import { createRef } from '../src/ref-proxy'
 
 // --- Public API (validate.*) returns arrays ---
 
@@ -237,6 +238,19 @@ describe('validate.template', () => {
   it('ignores events when methods is undefined', () => {
     const w = validate.template('button', { click: 'save' }, undefined)
     expect(w).toEqual([])
+  })
+
+  it('accepts props as a template key', () => {
+    const w = validate.template('x-tree', { props: { items: [] } }, {})
+    expect(w).toEqual([])
+  })
+
+  it('checks method refs like handler strings', () => {
+    const $ = createRef()
+    expect(validate.template('button', { click: $.save }, { save() {} })).toEqual([])
+    const w = validate.template('button', { click: $.missing }, { save() {} })
+    expect(w).toHaveLength(1)
+    expect(w[0]).toContain('references method "missing" which is not defined')
   })
 })
 

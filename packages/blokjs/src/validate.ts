@@ -1,6 +1,7 @@
 import type { ComponentDef } from './component'
 import { RESERVED_CONTEXT_KEYS } from './component'
 import type { StoreDef } from './store'
+import { handlerName } from './ref-proxy'
 
 const VALID_DEF_KEYS: Record<string, 1> = {
   props: 1, state: 1, computed: 1, watch: 1, methods: 1,
@@ -17,7 +18,7 @@ const VALID_STORE_KEYS: Record<string, 1> = {
 }
 
 const TEMPLATE_KEYS: Record<string, 1> = {
-  text: 1, bind: 1, html: 1, children: 1, class: 1, style: 1, model: 1,
+  text: 1, bind: 1, props: 1, html: 1, children: 1, class: 1, style: 1, model: 1,
   ref: 1, route: 1, link: 1, on: 1, when: 1, each: 1, as: 1, key: 1, slot: 1,
 }
 
@@ -103,7 +104,7 @@ function collectTemplate(tag: string, opts: Record<string, any>, methods: Record
       const base = key.split('.')[0]
       if (!(base in EVENT_NAMES)) continue
 
-      const handler = opts[key]
+      const handler = handlerName(opts[key])
       if (typeof handler !== 'string') continue
       if (handler.includes('=')) continue
       if (!handler) continue

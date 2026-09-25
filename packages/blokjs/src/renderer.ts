@@ -1,4 +1,4 @@
-import { BlokRef, REF, isRef, createRef as createRefForInstance } from './ref-proxy'
+import { BlokRef, REF, isRef, handlerName, createRef as createRefForInstance } from './ref-proxy'
 import { Scope } from './scope'
 import { createEffect, createProxy, untracked } from './reactive'
 import {
@@ -450,7 +450,7 @@ function renderComponent(tag: string, propsObj: Record<string, any>, ctx: Render
   }
 
   const propBindings: Record<string, any> = {}
-  const eventMap: Record<string, string> = {}
+  const eventMap: Record<string, unknown> = {}
   const slotChildren: any[] = []
 
   for (const [key, val] of Object.entries(propsObj)) {
@@ -483,7 +483,8 @@ function renderComponent(tag: string, propsObj: Record<string, any>, ctx: Render
   }
 
   // Wire event handlers
-  for (const [event, methodName] of Object.entries(eventMap)) {
+  for (const [event, handler] of Object.entries(eventMap)) {
+    const methodName = handlerName(handler)
     inst.eventHandlers.set(event, (payload: any) => {
       if (typeof methodName === 'string' && ctx.inst.def.methods?.[methodName]) {
         ctx.inst.context[methodName](payload)
@@ -529,7 +530,7 @@ function renderComponent(tag: string, propsObj: Record<string, any>, ctx: Render
 }
 
 const SPECIAL: Record<string, 1> = {
-  text: 1, bind: 1, html: 1, children: 1, class: 1, style: 1, model: 1,
+  text: 1, bind: 1, props: 1, html: 1, children: 1, class: 1, style: 1, model: 1,
   ref: 1, route: 1, link: 1, on: 1, when: 1, each: 1, as: 1, key: 1, slot: 1,
 }
 
@@ -557,6 +558,7 @@ function applyOptions(el: HTMLElement, tag: string, opts: Record<string, any>, c
       continue
     }
     if (key === 'bind') continue
+    if (key === 'props') { applyProps(el, val, ctx); continue }
     if (key === 'html') {
       if (typeof val === 'string') {
         if (__DEV__ && SUSPICIOUS_HTML.test(val)) {
@@ -603,7 +605,7 @@ function applyOptions(el: HTMLElement, tag: string, opts: Record<string, any>, c
     }
     if (key === 'on' && typeof val === 'object') {
       for (const [event, handler] of Object.entries(val)) {
-        attachEvent(el, event, handler as string, ctx)
+        attachEvent(el, event, handler, ctx)
       }
       continue
     }
@@ -703,6 +705,22 @@ function applyStyle(el: HTMLElement, val: any, ctx: RenderCtx): void {
   }
 }
 
+function applyProps(el: HTMLElement, props: Record<string, any>, ctx: RenderCtx): void {
+  if (props == null || typeof props !== 'object') return
+  const target = el as any
+  for (const [prop, val] of Object.entries(props)) {
+    if (isRef(val)) {
+      createEffect(() => {
+        const v = resolve(val, ctx)
+        // The element's setter may read state; those reads must not subscribe this binding
+        untracked(() => { target[prop] = v })
+      }, ctx.scope)
+    } else {
+      target[prop] = val
+    }
+  }
+}
+
 function setupModel(el: HTMLElement, tag: string, ref: any, ctx: RenderCtx): void {
   if (!isRef(ref)) return
 
@@ -729,18 +747,19 @@ function setupModel(el: HTMLElement, tag: string, ref: any, ctx: RenderCtx): voi
   }
 }
 
-function attachEvent(el: HTMLElement, rawEvent: string, handler: any, ctx: RenderCtx): void {
+function attachEvent(el: HTMLElement, rawEvent: string, rawHandler: any, ctx: RenderCtx): void {
   let handlerStr: string
   let prevent: boolean
   let stop: boolean
 
+  const handler = handlerName(rawHandler) as any
   if (typeof handler === 'string') {
     const parts = rawEvent.split('.')
     prevent = parts.includes('prevent')
     stop = parts.includes('stop')
     handlerStr = handler
   } else if (typeof handler === 'object' && handler != null) {
-    handlerStr = handler.handler || ''
+    handlerStr = (handlerName(handler.handler) as string) || ''
     prevent = !!handler.prevent
     stop = !!handler.stop
   } else {

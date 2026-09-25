@@ -145,7 +145,11 @@ The `view` function receives `$` (a reactive reference builder) and returns a pl
   { option: { value: 'b', text: 'B' } }
 ]}}
 { textarea: { model: $.description } }
+{ 'wa-input': { model: $.email } }   // custom element: binds .value, listens to 'input'
 ```
+
+For custom elements with another shape (e.g. `.checked`), use `props` + `on`:
+`{ 'wa-switch': { props: { checked: $.dark }, on: { change: 'toggleDark' } } }`
 
 ### Dynamic attributes (bind)
 
@@ -153,6 +157,18 @@ The `view` function receives `$` (a reactive reference builder) and returns a pl
 { img: { bind: { src: $.imageUrl, alt: $.title } } }
 { a: { bind: { href: $.link }, link: true, text: 'Go' } }
 ```
+
+### Properties (props)
+
+Attributes are strings. `props` assigns JS properties: arrays/objects for web components, or properties with no attribute.
+
+```js
+{ 'data-grid': { props: { rows: $.rows, columns: $.columns } } }  // arrays as properties
+{ input: { type: 'checkbox', props: { indeterminate: $.partial } } }
+{ 'data-grid': { props: { renderCell: formatCell } } }            // functions assigned as-is
+```
+
+A ref re-assigns the property only when its value changes. Replace arrays (`this.items = [...this.items, x]`) instead of `push` when the element must see the change.
 
 ### Class binding
 
@@ -177,6 +193,7 @@ The `view` function receives `$` (a reactive reference builder) and returns a pl
 
 ```js
 { button: { click: 'methodName' } }                   // methodName(event)
+{ button: { click: $.methodName } }                   // same, method ref
 { button: { click: 'remove(item)' } }                 // remove(itemValue)
 { button: { click: 'select(item.id)' } }              // select(resolved value)
 { button: { click: 'update(item, true, 42)' } }       // multiple args
@@ -185,11 +202,15 @@ The `view` function receives `$` (a reactive reference builder) and returns a pl
 { div: { click: { handler: 'onClick', stop: true } } }
 { div: { click: { handler: 'onClick', prevent: true } } }
 { button: { click: 'showModal = true' } }              // inline assignment
+{ input: { on: { focus: 'onFocus', blur: 'onBlur' } } }
+{ 'wa-dialog': { on: { 'wa-after-hide': $.onClose } } }  // any event name, incl. custom events
 ```
+
+A method ref (`$.save`) equals the string `'save'`. Refs cannot be called: `$.save(item)` is invalid, use `'save(item)'`.
 
 Argument types: path references (`item`, `item.name`, `count`), string literals (`'hello'`), numbers (`42`), booleans (`true`/`false`), `null`. When args are specified, only those are passed. Without args, the Event object is passed.
 
-Supported: click, dblclick, submit, input, change, focus, blur, keydown, keyup, keypress, mousedown, mouseup, mousemove, mouseenter, mouseleave, scroll, resize, dragstart, dragend, dragover, dragleave, drop, touchstart, touchend, touchmove.
+Direct keys work for: click, dblclick, submit, input, change, focus, blur, keydown, keyup, keypress, mousedown, mouseup, mousemove, mouseenter, mouseleave, scroll, resize, dragstart, dragend, dragover, dragleave, drop, touchstart, touchend, touchmove. Any other event goes in `on: { ... }`; as a direct key it becomes an attribute.
 
 ### Element refs
 
@@ -214,6 +235,7 @@ methods: { remove() { this.emit('remove', this.item) } }
 Parent listens:
 ```js
 { TodoItem: { todo: $.todo, on_remove: 'handleRemove' } }
+{ TodoItem: { todo: $.todo, on_remove: $.handleRemove } }   // method ref
 ```
 
 ### Slots

@@ -36,6 +36,7 @@ No virtual DOM. Views are plain JavaScript objects. State is reactive - when `co
 - **Routing** - client-side router with params, guards, and history/hash modes
 - **Stores** - global state with computed properties and async tracking
 - **Async tracking** - automatic `loading` and `error` state for async methods
+- **Web components** - custom events via `on`, JS properties via `props`, `model` on value-based elements
 - **URL sanitization** - `javascript:` and dangerous URIs blocked on href/src attributes
 - **Multi-mount** - multiple independent app instances, optional full isolation
 - **Zero dependencies** - single script tag, no build step needed
@@ -159,12 +160,17 @@ Views are plain objects. The `$` proxy creates reactive references resolved at r
 { input: { type: 'text', model: $.search } }
 { select: { model: $.category, children: [...] } }
 
+// JS properties (arrays/objects for web components)
+{ 'data-grid': { props: { rows: $.rows } } }
+
 // Classes (string, object, or array)
 { div: { class: { active: $.isActive, disabled: $.isOff } } }
 { li: { class: { active: ($) => $.item.id === $.selectedId } } }
 
 // Events
 { button: { click: 'save', text: 'Save' } }
+{ button: { click: $.save, text: 'Save' } }   // method ref
+{ 'wa-dialog': { on: { 'wa-after-hide': 'onClose' } } }
 { button: { click: 'remove(item)', text: 'x' } }
 { form: { submit: 'handleSubmit', children: [...] } }
 

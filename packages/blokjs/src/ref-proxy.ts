@@ -15,6 +15,11 @@ export function isRef(v: unknown): v is BlokRef {
   return info != null && Array.isArray(info.path)
 }
 
+/** `$.save` is the accessor form of the handler string 'save'; other values pass through. */
+export function handlerName(handler: unknown): unknown {
+  return isRef(handler) ? handler[REF].path.join('.') : handler
+}
+
 export function createRef(path: string[] = [], negate = false): any {
   const info: RefInfo = { path, negate }
   return new Proxy(info as any, {

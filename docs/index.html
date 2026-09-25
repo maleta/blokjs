@@ -877,6 +877,21 @@ $.store.not.ready // 'not' becomes a property name, not negation`),
 { button: { disabled: false } }   // <button> (removed)`),
               note('Attributes are applied before special keys. This ensures type is set before model on inputs.'),
               note('URL attributes (href, src, action, formaction) are automatically sanitized — only http(s):, mailto:, tel:, relative paths, and fragment (#) URLs are allowed. javascript: and other dangerous protocols are blocked.'),
+              sub('props', 'Properties'),
+              { p: { children: [
+                'Attributes are always strings. ',
+                ic('props'),
+                ' assigns JavaScript properties instead: arrays and objects for web components, or properties that have no attribute, such as ',
+                ic('indeterminate'),
+                '.',
+              ] } },
+              c(`// Static values or refs - a ref re-assigns the property when its value changes
+{ 'data-grid': { props: { rows: $.rows, columns: $.columns } } }
+{ input: { type: 'checkbox', props: { indeterminate: $.partial } } }
+
+// Functions are assigned as-is, e.g. callbacks the element calls
+{ 'data-grid': { props: { renderCell: formatCell } } }`),
+              note('A ref re-assigns the property only when the value itself changes. To let the element see a new item, replace the array (this.items = [...this.items, item]) instead of pushing into it.'),
             ),
 
             // --- Model ---
@@ -896,7 +911,13 @@ $.store.not.ready // 'not' becomes a property name, not negation`),
 ] } }
 
 // Textarea — binds .value, listens to 'input' event
-{ textarea: { model: $.content } }`),
+{ textarea: { model: $.content } }
+
+// Custom elements - bind .value, listen to 'input' event
+{ 'wa-input': { model: $.email } }
+
+// Other shapes (e.g. a switch with .checked): props + on
+{ 'wa-switch': { props: { checked: $.dark }, on: { change: 'toggleDark' } } }`),
             ),
 
             // --- Events ---
@@ -904,6 +925,9 @@ $.store.not.ready // 'not' becomes a property name, not negation`),
               p('Events are specified as string values — either a method name or an assignment expression.'),
               c(`// Call a method (receives the native Event as argument)
 { button: { click: 'handleClick', text: 'Click' } }
+
+// Same, as a method ref
+{ button: { click: $.handleClick, text: 'Click' } }
 
 // Inline state assignment
 { button: { click: 'editing = true', text: 'Edit' } }
@@ -919,6 +943,17 @@ $.store.not.ready // 'not' becomes a property name, not negation`),
 
 // Multiple events via 'on' object
 { input: { on: { focus: 'onFocus', blur: 'onBlur' } } }`),
+              { p: { children: [
+                'A method ref (',
+                ic('$.handleClick'),
+                ') is the same as the string ',
+                ic("'handleClick'"),
+                ' and works everywhere a handler string does. Refs cannot be called, so ',
+                ic('$.remove(item)'),
+                ' does not work: use the string form ',
+                ic("'remove(item)'"),
+                ' for arguments and assignments.',
+              ] } },
               sub('event-names', 'Recognized Event Names'),
               p('These events can be used as direct keys on element options:'),
               c(`click, dblclick, mousedown, mouseup, mousemove,
@@ -927,10 +962,11 @@ input, change, submit, focus, blur, scroll, resize,
 touchstart, touchend, touchmove,
 dragstart, dragend, dragover, dragleave, drop`),
               { p: { children: [
-                'For other events, use the ',
+                'For other events, including custom events from web components, use the ',
                 ic('on'),
                 ' object.',
               ] } },
+              c(`{ 'wa-dialog': { on: { 'wa-after-hide': $.onClose } } }`),
               sub('argument-passing', 'Argument Passing'),
               p('Pass arguments to method calls using function-call syntax. Arguments are resolved at event time.'),
               c(`// Iteration variable
@@ -1127,6 +1163,7 @@ computed: {
 
 // Listen to child events with on_ prefix
 { TodoItem: { todo: $.item, on_remove: 'handleRemove' } }
+{ TodoItem: { todo: $.item, on_remove: $.handleRemove } }  // method ref
 
 // Parent method 'handleRemove' is called when child does this.emit('remove', payload)`),
               sub('component-events', 'Parent-Child Events'),

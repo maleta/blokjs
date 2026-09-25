@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 
 - Function form in class object values: `class: { active: ($) => $.grp.name === $.activeGroup }`
+- `props` template key assigns JS properties instead of attributes - arrays and objects for web components, or properties with no attribute such as `indeterminate`
+- Method refs as event handlers: `click: $.save`, `on: { 'wa-change': $.onChange }`, `on_remove: $.handleRemove` - equivalent to the handler string `'save'`, previously they threw at mount
 
 ### Fixed
 
