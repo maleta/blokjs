@@ -1099,6 +1099,7 @@ dragstart, dragend, dragover, dragleave, drop`),
               c(`// These do NOT work with refs:
 { when: !$.loading, ... }           // always false (! on a proxy object)
 { when: $.count > 10, ... }         // compares proxy > 10, not the value
+{ span: { text: $.on ? 'on' : 'off' } }  // always 'on' (a proxy object is truthy)
 
 // Use function form instead:
 { when: ($) => !$.loading, ... }
@@ -1466,7 +1467,7 @@ NotFound     — navigate(-1) back
             // --- Validation ---
             sec('validate-api', 'Validation API',
               p('BlokJS includes a validate object with pure functions that check definitions and return an array of warning strings. These run automatically via console.warn in dev builds, but the validate API lets you capture warnings programmatically.'),
-              note('Validation is only available in dev builds (blokjs.js, blokjs.esm.js). Minified builds strip all validation code.'),
+              note('Dev builds (blokjs.js, blokjs.esm.js) run every check automatically. Minified builds (blokjs.min.js, blokjs.esm.min.js) run only the unknown-key check on component, mount and store definitions, so a misnamed hook such as init instead of mount still warns in production. The blok.validate.* functions are available in every build.'),
 
               sub('validate-component', 'validate.component(name, def)'),
               p('Validates a component definition. Returns warnings for missing view, unknown keys, state conflicts, and type errors.'),
@@ -1482,7 +1483,11 @@ NotFound     — navigate(-1) back
   state: { count: 0 },
   // missing view
 })
-// ['Mount options missing the required "view" function.']`),
+// ['Mount options missing the required "view" function.']
+
+// Names from other frameworks get a suggestion
+blok.validate.mount({ init() {}, view: ($) => ({ div: 'hi' }) })
+// ['Unknown mount option "init" - did you mean "mount"?']`),
 
               sub('validate-store', 'validate.store(name, def)'),
               p('Validates a store definition. Checks for unknown keys.'),
@@ -1505,7 +1510,7 @@ NotFound     — navigate(-1) back
               p('The validator catches the following issues:'),
               { ul: { style: 'font-size:14px; line-height:1.8; margin:10px 0 16px 20px; color:#333', children: [
                 { li: 'Missing or non-function view' },
-                { li: 'Unknown definition keys (with typo suggestions)' },
+                { li: 'Unknown definition keys, with suggestions for typos and names from other frameworks (init, mounted, created, setup, destroyed, data, render, template...). Runs in minified builds too.' },
                 { li: 'State keys conflicting with reserved names (store, route, refs, el, etc.)' },
                 { li: 'Duplicate keys across state, computed, and methods' },
                 { li: 'Non-function mount, unmount, methods, computed, or watch entries' },

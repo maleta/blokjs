@@ -9,8 +9,6 @@ export { validate }
 export type { ComponentDef, MountOptions } from './component'
 export type { StoreDef } from './store'
 
-declare const __DEV__: boolean
-
 const globalRegistry = new Map<string, ComponentDef>()
 const globalStoreDefs = new Map<string, StoreDef>()
 const globalStores = new Map<string, StoreInstance>()
@@ -18,12 +16,12 @@ let globalStoreProxy: any = null
 let routerOwner: { destroy: () => void } | null = null
 
 export function component(name: string, def: ComponentDef): void {
-  if (__DEV__) validateComponentDef(name, def)
+  validateComponentDef(name, def)
   globalRegistry.set(name, def)
 }
 
 export function store(name: string, def: StoreDef): void {
-  if (__DEV__) validateStoreDef(name, def)
+  validateStoreDef(name, def)
   if (globalStores.has(name)) {
     console.warn(`[blok] Store "${name}" already registered. Skipping.`)
     return
@@ -34,7 +32,7 @@ export function store(name: string, def: StoreDef): void {
 }
 
 export function mount(target: string | HTMLElement, opts: MountOptions): { destroy: () => void } {
-  if (__DEV__) validateMountOptions(opts as Record<string, any>)
+  validateMountOptions(opts as Record<string, any>)
 
   const app = createApp()
 

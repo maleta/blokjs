@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Function form in class object values: `class: { active: ($) => $.grp.name === $.activeGroup }`
 - `props` template key assigns JS properties instead of attributes - arrays and objects for web components, or properties with no attribute such as `indeterminate`
 - Method refs as event handlers: `click: $.save`, `on: { 'wa-change': $.onChange }`, `on_remove: $.handleRemove` - equivalent to the handler string `'save'`, previously they threw at mount
+- "Did you mean" suggestions for definition keys from other frameworks: `init`, `mounted`, `created`, `setup` suggest `mount`; `destroyed`, `beforeUnmount` suggest `unmount`; `data` suggests `state`; `render`, `template` suggest `view`
+
+### Changed
+
+- Unknown keys in component, mount and store definitions now warn in minified builds too - a misnamed hook such as `init()` was silently dead code in production. Other validation stays dev-only
 
 ### Fixed
 

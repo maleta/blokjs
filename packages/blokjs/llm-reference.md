@@ -384,6 +384,21 @@ Guards return: `true` (allow), `false` (block), or `'/redirect-path'`.
 
 ## Patterns
 
+### Refs are not values
+
+`$.x` is a path descriptor (a Proxy object), not the value. JS operators see the object, which is always truthy:
+
+```js
+// Wrong: always 'on', and comparisons never match
+{ span: { text: $.enabled ? 'on' : 'off' } }
+{ when: $.count > 0, children: [...] }
+
+// Right: computed, or function form where supported (when, class object values)
+computed: { label() { return this.enabled ? 'on' : 'off' } }
+{ span: { text: $.label } }
+{ when: ($) => $.count > 0, children: [...] }
+```
+
 ### Negation in view refs
 
 ```js
@@ -440,7 +455,7 @@ blok.validate.template('button', { click: 'save', clss: 'btn' }, { save() {} })
 ### What gets caught
 
 - Missing or non-function `view`
-- Unknown definition keys (typos like `methds` instead of `methods`)
+- Unknown definition keys, with suggestions for typos (`methds`) and names from other frameworks (`init`/`mounted`/`created`/`setup` -> `mount`, `destroyed`/`beforeUnmount` -> `unmount`, `data` -> `state`, `render`/`template` -> `view`)
 - State keys conflicting with reserved names (`store`, `route`, `refs`, `el`, etc.)
 - Duplicate keys across state/computed/methods
 - Non-function mount/unmount/methods/computed/watch entries
@@ -462,4 +477,4 @@ if (w.length) {
 blok.component('my-comp', def)
 ```
 
-Note: validation runs automatically in dev builds (`blokjs.js`, `blokjs.esm.js`) via `console.warn`. The `blok.validate.*` functions let you capture warnings programmatically without console interception. Minified builds (`blokjs.min.js`, `blokjs.esm.min.js`) strip all validation.
+Note: dev builds (`blokjs.js`, `blokjs.esm.js`) run all checks automatically via `console.warn`. Minified builds (`blokjs.min.js`, `blokjs.esm.min.js`) run only the unknown definition key check (component, mount, store). The `blok.validate.*` functions are available in every build and let you capture warnings programmatically.

@@ -167,6 +167,37 @@ describe('validate.store', () => {
   })
 })
 
+describe('unknown definition keys - suggestions', () => {
+  it('suggests mount for init in mount options', () => {
+    const w = validate.mount({ init() {}, view: () => ({}) })
+    expect(w).toEqual(['Unknown mount option "init" - did you mean "mount"?'])
+  })
+
+  it('maps names from other frameworks', () => {
+    const w = validate.component('C', {
+      mounted() {}, beforeDestroy() {}, data: {}, render: () => ({}), watchers: {}, view: () => ({}),
+    } as any)
+    expect(w).toEqual([
+      'Unknown property "mounted" in component "C" - did you mean "mount"?',
+      'Unknown property "beforeDestroy" in component "C" - did you mean "unmount"?',
+      'Unknown property "data" in component "C" - did you mean "state"?',
+      'Unknown property "render" in component "C" - did you mean "view"?',
+      'Unknown property "watchers" in component "C" - did you mean "watch"?',
+    ])
+  })
+
+  it('suggests close typos', () => {
+    const w = validate.component('C', { methds: {}, view: () => ({}) } as any)
+    expect(w).toEqual(['Unknown property "methds" in component "C" - did you mean "methods"?'])
+  })
+
+  it('only suggests keys valid for the definition kind', () => {
+    expect(validate.store('s', { data: {} } as any)).toEqual(['Unknown property "data" in store "s" - did you mean "state"?'])
+    const w = validate.store('s', { init() {} } as any)
+    expect(w).toEqual(['Unknown property "init" in store "s". Valid: state, computed, methods'])
+  })
+})
+
 describe('validate.template', () => {
   it('returns empty array for valid template keys', () => {
     const w = validate.template('div', {

@@ -140,7 +140,7 @@ Access route data in components via `this.route.params`, `this.route.query`, and
 
 ## View DSL
 
-Views are plain objects. The `$` proxy creates reactive references resolved at render time.
+Views are plain objects. The `$` proxy creates reactive references resolved at render time. A ref is a path, not a value, so JS operators (`!`, `? :`, `>`) do not see its value: use `$.not`, the function form, or a computed.
 
 ```js
 // Conditionals

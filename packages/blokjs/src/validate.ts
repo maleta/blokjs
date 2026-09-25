@@ -3,6 +3,8 @@ import { RESERVED_CONTEXT_KEYS } from './component'
 import type { StoreDef } from './store'
 import { handlerName } from './ref-proxy'
 
+declare const __DEV__: boolean
+
 const VALID_DEF_KEYS: Record<string, 1> = {
   props: 1, state: 1, computed: 1, watch: 1, methods: 1,
   mount: 1, unmount: 1, view: 1,
@@ -29,16 +31,38 @@ const EVENT_NAMES: Record<string, 1> = {
   dragstart: 1, dragend: 1, dragover: 1, dragleave: 1, drop: 1,
 }
 
+// Names from other frameworks; findTypo cannot reach them (`init` is far from `mount`)
+const FOREIGN_NAMES = new Map<string, string>([
+  ['init', 'mount'], ['mounted', 'mount'], ['created', 'mount'], ['onMount', 'mount'], ['setup', 'mount'], ['beforeMount', 'mount'],
+  ['destroyed', 'unmount'], ['unmounted', 'unmount'], ['beforeUnmount', 'unmount'], ['beforeDestroy', 'unmount'], ['onUnmount', 'unmount'],
+  ['data', 'state'], ['render', 'view'], ['template', 'view'], ['watchers', 'watch'],
+])
+
 // --- Collectors (return warnings as array) ---
 
-function collectComponentDef(name: string, def: ComponentDef): string[] {
+function collectUnknownKeys(def: object, valid: Record<string, 1>, label: (key: string) => string): string[] {
   const w: string[] = []
-
   for (const key of Object.keys(def)) {
-    if (!(key in VALID_DEF_KEYS)) {
-      w.push(`Unknown property "${key}" in component "${name}". Valid: ${Object.keys(VALID_DEF_KEYS).join(', ')}`)
-    }
+    if (key in valid) continue
+    const foreign = FOREIGN_NAMES.get(key)
+    const hint = foreign && foreign in valid ? foreign : findTypo(key, valid)
+    w.push(hint
+      ? `${label(key)} - did you mean "${hint}"?`
+      : `${label(key)}. Valid: ${Object.keys(valid).join(', ')}`)
   }
+  return w
+}
+
+function collectComponentKeys(name: string, def: ComponentDef): string[] {
+  return collectUnknownKeys(def, VALID_DEF_KEYS, k => `Unknown property "${k}" in component "${name}"`)
+}
+
+function collectMountKeys(opts: Record<string, any>): string[] {
+  return collectUnknownKeys(opts, VALID_MOUNT_KEYS, k => `Unknown mount option "${k}"`)
+}
+
+function collectComponentDef(name: string, def: ComponentDef): string[] {
+  const w = collectComponentKeys(name, def)
 
   if (!def.view) {
     w.push(`Component "${name}" is missing the required "view" function.`)
@@ -52,13 +76,7 @@ function collectComponentDef(name: string, def: ComponentDef): string[] {
 }
 
 function collectMountOptions(opts: Record<string, any>): string[] {
-  const w: string[] = []
-
-  for (const key of Object.keys(opts)) {
-    if (!(key in VALID_MOUNT_KEYS)) {
-      w.push(`Unknown mount option "${key}". Valid: ${Object.keys(VALID_MOUNT_KEYS).join(', ')}`)
-    }
-  }
+  const w = collectMountKeys(opts)
 
   if (!opts.view) {
     w.push('Mount options missing the required "view" function.')
@@ -74,13 +92,7 @@ function collectMountOptions(opts: Record<string, any>): string[] {
 }
 
 function collectStoreDef(name: string, def: StoreDef): string[] {
-  const w: string[] = []
-  for (const key of Object.keys(def)) {
-    if (!(key in VALID_STORE_KEYS)) {
-      w.push(`Unknown property "${key}" in store "${name}". Valid: ${Object.keys(VALID_STORE_KEYS).join(', ')}`)
-    }
-  }
-  return w
+  return collectUnknownKeys(def, VALID_STORE_KEYS, k => `Unknown property "${k}" in store "${name}"`)
 }
 
 function collectTemplate(tag: string, opts: Record<string, any>, methods: Record<string, any> | undefined): string[] {
@@ -170,12 +182,13 @@ function emitWarnings(warnings: string[]): void {
   for (const msg of warnings) console.warn(`[blok warn] ${msg}`)
 }
 
+// Production builds keep the unknown-key check: a misnamed hook is otherwise silently dead
 export function validateComponentDef(name: string, def: ComponentDef): void {
-  emitWarnings(collectComponentDef(name, def))
+  emitWarnings(__DEV__ ? collectComponentDef(name, def) : collectComponentKeys(name, def))
 }
 
 export function validateMountOptions(opts: Record<string, any>): void {
-  emitWarnings(collectMountOptions(opts))
+  emitWarnings(__DEV__ ? collectMountOptions(opts) : collectMountKeys(opts))
 }
 
 export function validateStoreDef(name: string, def: StoreDef): void {
