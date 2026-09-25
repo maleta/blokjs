@@ -1,4 +1,4 @@
-import { BlokRef, isRef } from './ref-proxy'
+import { BlokRef, REF, isRef } from './ref-proxy'
 import { createProxy, setByPath, untracked, createEffect, createComputed, type ComputedSignal } from './reactive'
 import { Scope } from './scope'
 import { wrapAsync } from './async-tracking'
@@ -199,7 +199,7 @@ function createContext(inst: ComponentInstance): any {
       // Shared props
       if (inst.sharedProps.has(k)) {
         const sp = inst.sharedProps.get(k)!
-        return resolveOnInstance(sp.owner, sp.ref.path)
+        return resolveOnInstance(sp.owner, sp.ref[REF].path)
       }
 
       // Static props
@@ -232,7 +232,7 @@ function createContext(inst: ComponentInstance): any {
       // Shared props: write to owner
       if (inst.sharedProps.has(k)) {
         const sp = inst.sharedProps.get(k)!
-        setOnInstance(sp.owner, sp.ref.path, val)
+        setOnInstance(sp.owner, sp.ref[REF].path, val)
         return true
       }
 
@@ -313,7 +313,7 @@ export function resolveOnInstance(inst: ComponentInstance, path: string[]): any 
   // Shared props
   if (inst.sharedProps.has(root)) {
     const sp = inst.sharedProps.get(root)!
-    val = resolveOnInstance(sp.owner, sp.ref.path)
+    val = resolveOnInstance(sp.owner, sp.ref[REF].path)
     for (let i = 1; i < path.length; i++) {
       if (val == null) return undefined
       val = val[path[i]]
@@ -354,9 +354,9 @@ export function setOnInstance(inst: ComponentInstance, path: string[], value: an
   if (inst.sharedProps.has(root)) {
     const sp = inst.sharedProps.get(root)!
     if (path.length === 1) {
-      setOnInstance(sp.owner, sp.ref.path, value)
+      setOnInstance(sp.owner, sp.ref[REF].path, value)
     } else {
-      const fullPath = [...sp.ref.path, ...path.slice(1)]
+      const fullPath = [...sp.ref[REF].path, ...path.slice(1)]
       setOnInstance(sp.owner, fullPath, value)
     }
     return

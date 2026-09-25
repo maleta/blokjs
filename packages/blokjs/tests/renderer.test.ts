@@ -77,6 +77,56 @@ describe('text binding', () => {
 
     expect(el.querySelector('p')!.textContent).toBe('43')
   })
+
+  it('data properties named path and negate resolve like any other key', async () => {
+    const { el } = mountApp({
+      state: {
+        path: '/root',
+        opts: { negate: 'yes' },
+        items: [{ path: '/tmp', count: 6 }, { path: '/var', count: 7 }],
+      },
+      methods: {
+        move() { this.path = '/home' },
+      },
+      view: ($: any) => ({
+        div: { children: [
+          { p: { text: $.path } },
+          { i: { text: $.opts.negate } },
+          { each: $.items, as: 'b', key: 'count', children: [{ span: { text: $.b.path } }] },
+          { button: { text: 'move', click: 'move' } },
+        ] },
+      }),
+    })
+
+    expect(el.querySelector('p')!.textContent).toBe('/root')
+    expect(el.querySelector('i')!.textContent).toBe('yes')
+    expect(Array.from(el.querySelectorAll('span')).map(s => s.textContent)).toEqual(['/tmp', '/var'])
+
+    el.querySelector('button')!.click()
+    await flush()
+
+    expect(el.querySelector('p')!.textContent).toBe('/home')
+  })
+
+  it('model writes to an iteration property named path', async () => {
+    const { el } = mountApp({
+      state: { items: [{ id: 1, path: '/a' }] },
+      view: ($: any) => ({
+        div: { children: [
+          { each: $.items, as: 'row', key: 'id', children: [{ input: { model: $.row.path } }] },
+          { p: { text: $.items[0].path } },
+        ] },
+      }),
+    })
+
+    const input = el.querySelector('input')!
+    expect(input.value).toBe('/a')
+    input.value = '/b'
+    input.dispatchEvent(new Event('input'))
+    await flush()
+
+    expect(el.querySelector('p')!.textContent).toBe('/b')
+  })
 })
 
 // ---- Conditional rendering ----

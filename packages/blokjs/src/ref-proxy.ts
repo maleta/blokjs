@@ -1,21 +1,25 @@
 export const REF = Symbol.for('blokjs-ref')
 
-export interface BlokRef {
-  readonly [REF]: true
+export interface RefInfo {
   readonly path: string[]
   readonly negate: boolean
 }
 
+/** View accessor. Metadata sits behind REF only, so every string key stays free for user data. */
+export interface BlokRef {
+  readonly [REF]: RefInfo
+}
+
 export function isRef(v: unknown): v is BlokRef {
-  return v != null && typeof v === 'object' && (v as any)[REF] === true
+  const info = v != null && typeof v === 'object' ? (v as any)[REF] : null
+  return info != null && Array.isArray(info.path)
 }
 
 export function createRef(path: string[] = [], negate = false): any {
-  return new Proxy({ [REF]: true, path, negate } as any, {
-    get(t, p) {
-      if (p === REF) return true
-      if (p === 'path') return t.path
-      if (p === 'negate') return t.negate
+  const info: RefInfo = { path, negate }
+  return new Proxy(info as any, {
+    get(_, p) {
+      if (p === REF) return info
       if (typeof p === 'symbol') return undefined
       const key = String(p)
       if (key === 'not' && path.length === 0 && !negate) return createRef([], true)

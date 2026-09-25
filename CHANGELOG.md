@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- View refs no longer intercept data properties named `path` or `negate` - `$.item.path` rendered the loop variable name instead of the value, and `$.path` rendered an empty string
+
 ## [0.3.1] - 2026-04-04
 
 ### Added

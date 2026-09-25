@@ -1,4 +1,4 @@
-import { BlokRef, isRef, createRef as createRefForInstance } from './ref-proxy'
+import { BlokRef, REF, isRef, createRef as createRefForInstance } from './ref-proxy'
 import { Scope } from './scope'
 import { createEffect, createProxy, untracked } from './reactive'
 import {
@@ -34,26 +34,25 @@ function resolveCondition(val: any, ctx: RenderCtx): any {
 export function resolve(val: any, ctx: RenderCtx): any {
   if (!isRef(val)) return val
 
-  const ref = val as BlokRef
-  const path = ref.path
+  const { path, negate } = (val as BlokRef)[REF]
   if (path.length === 0) return undefined
 
   // Check iteration scope
   if (ctx.iterVars.has(path[0])) {
     let v = ctx.iterVars.get(path[0])!()
     for (let i = 1; i < path.length; i++) {
-      if (v == null) return ref.negate ? true : undefined
+      if (v == null) return negate ? true : undefined
       v = v[path[i]]
     }
-    return ref.negate ? !v : v
+    return negate ? !v : v
   }
 
   const v = resolveOnInstance(ctx.inst, path)
-  return ref.negate ? !v : v
+  return negate ? !v : v
 }
 
 function resolveWrite(ref: BlokRef, ctx: RenderCtx, value: any): void {
-  const path = ref.path
+  const path = ref[REF].path
   if (path.length === 0) return
 
   // Iteration variable write
@@ -458,9 +457,9 @@ function renderComponent(tag: string, propsObj: Record<string, any>, ctx: Render
 
   // For iteration-scoped props, set up live getters
   for (const [key, val] of Object.entries(propBindings)) {
-    if (isRef(val) && val.path.length > 0 && ctx.iterVars.has(val.path[0])) {
+    if (isRef(val) && ctx.iterVars.has(val[REF].path[0])) {
       inst.sharedProps.delete(key)
-      const ref = val as BlokRef
+      const ref = val
       Object.defineProperty(inst.stateData, key, {
         get: () => resolve(ref, ctx),
         set: (v: any) => resolveWrite(ref, ctx, v),

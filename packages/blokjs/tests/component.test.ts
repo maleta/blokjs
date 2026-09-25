@@ -9,7 +9,7 @@ import {
   RESERVED_CONTEXT_KEYS,
 } from '../src/component'
 import type { App, ComponentDef, ComponentInstance } from '../src/component'
-import { createRef } from '../src/ref-proxy'
+import { REF, createRef } from '../src/ref-proxy'
 import { createProxy } from '../src/reactive'
 
 function flush(): Promise<void> {
@@ -82,7 +82,7 @@ describe('createInstance', () => {
 
     expect(inst.sharedProps.has('myProp')).toBe(true)
     expect(inst.sharedProps.get('myProp')!.owner).toBe(parent)
-    expect(inst.sharedProps.get('myProp')!.ref.path).toEqual(['count'])
+    expect(inst.sharedProps.get('myProp')!.ref[REF].path).toEqual(['count'])
     expect(inst.staticProps.has('myProp')).toBe(false)
   })
 
