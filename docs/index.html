@@ -834,7 +834,12 @@ $.store.not.ready // 'not' becomes a property name, not negation`),
 { div: { class: ['base', { highlight: $.isNew }] } }
 
 // Kebab-case class names — quote the key
-{ div: { class: { 'is-active': $.isActive, 'has-error': $.hasError } } }`),
+{ div: { class: { 'is-active': $.isActive, 'has-error': $.hasError } } }
+
+// Function form - same $ as function-form when, loop variables included
+{ each: $.groups, as: 'grp', key: 'name', children: [
+  { button: { class: { tab: true, active: ($) => $.grp.name === $.activeGroup }, text: $.grp.name } }
+] }`),
             ),
 
             // --- Styles ---
@@ -1016,7 +1021,9 @@ dragstart, dragend, dragover, dragleave, drop`),
                 ic('when'),
                 '. The function receives the reactive component context as ',
                 ic('$'),
-                ' and dependency tracking is automatic:',
+                ', with loop variables from enclosing ',
+                ic('each'),
+                ' blocks on top. Dependency tracking is automatic:',
               ] } },
               c(`{ when: ($) => !$.loading, children: [
   { p: 'Content loaded!' }
@@ -1036,7 +1043,14 @@ dragstart, dragend, dragover, dragleave, drop`),
 ] }
 
 // Element-level
-{ div: { when: ($) => $.count > 5, text: 'High count' } }`),
+{ div: { when: ($) => $.count > 5, text: 'High count' } }
+
+// Inside each - loop variables are available on $
+{ each: $.items, as: 'item', key: 'id', children: [
+  { when: ($) => $.item.score > $.threshold, children: [
+    { p: { text: $.item.name } }
+  ] }
+] }`),
 
               sub('when-computed', 'Ref Limitations'),
               { p: { children: [

@@ -161,6 +161,7 @@ Views are plain objects. The `$` proxy creates reactive references resolved at r
 
 // Classes (string, object, or array)
 { div: { class: { active: $.isActive, disabled: $.isOff } } }
+{ li: { class: { active: ($) => $.item.id === $.selectedId } } }
 
 // Events
 { button: { click: 'save', text: 'Save' } }

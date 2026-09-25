@@ -100,7 +100,7 @@ The `view` function receives `$` (a reactive reference builder) and returns a pl
 ]}
 
 // Function form - for expressions with operators (!, &&, ||, >, ternary, etc.)
-// $ here is the reactive component context (this), not the ref-building proxy
+// $ here is the reactive component context (this) plus loop variables, not the ref-building proxy
 { when: ($) => !$.isVisible, children: [
   { p: 'Shown when falsy' }
 ]}
@@ -115,6 +115,13 @@ The `view` function receives `$` (a reactive reference builder) and returns a pl
 
 { when: ($) => $.store.auth.isLoggedIn || $.isGuest, children: [
   { p: 'Has access' }
+]}
+
+// Inside each, loop variables are on $ too
+{ each: $.items, as: 'item', key: 'id', children: [
+  { when: ($) => $.item.score > $.threshold, children: [
+    { p: { text: $.item.name } }
+  ]}
 ]}
 ```
 
@@ -154,6 +161,8 @@ The `view` function receives `$` (a reactive reference builder) and returns a pl
 { div: { class: $.dynamicClass } }
 { div: { class: { active: $.isActive, disabled: $.isOff } } }
 { div: { class: ['base', { highlight: $.isHighlighted }] } }
+// Function form in object values - same $ as function-form when
+{ button: { class: { active: ($) => $.grp.name === $.activeGroup } } }
 ```
 
 ### Style binding

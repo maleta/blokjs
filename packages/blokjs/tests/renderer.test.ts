@@ -551,6 +551,59 @@ describe('class binding', () => {
 
     expect(el.querySelector('span')!.classList.contains('active')).toBe(true)
   })
+
+  it('function form in object value toggles on dependency change', async () => {
+    const { el } = mountApp({
+      state: { count: 0 },
+      methods: {
+        inc() { this.count++ },
+      },
+      view: ($: any) => ({
+        div: { children: [
+          { span: { class: { base: true, high: ($: any) => $.count > 1 }, text: 'x' } },
+          { button: { text: 'inc', click: 'inc' } },
+        ] },
+      }),
+    })
+
+    const span = el.querySelector('span')!
+    expect(span.className).toBe('base')
+
+    el.querySelector('button')!.click()
+    await flush()
+    expect(span.classList.contains('high')).toBe(false)
+
+    el.querySelector('button')!.click()
+    await flush()
+    expect(span.classList.contains('high')).toBe(true)
+  })
+
+  it('function form reads loop variables and component state', async () => {
+    const { el } = mountApp({
+      state: { groups: [{ name: 'a' }, { name: 'b' }], activeGroup: 'a' },
+      methods: {
+        pick(name: string) { this.activeGroup = name },
+      },
+      view: ($: any) => ({
+        div: { children: [
+          { each: $.groups, as: 'grp', key: 'name', children: [
+            { button: {
+              class: ['tab', { active: ($: any) => $.grp.name === $.activeGroup }],
+              click: 'pick(grp.name)',
+              text: $.grp.name,
+            } },
+          ] },
+        ] },
+      }),
+    })
+
+    const active = () => Array.from(el.querySelectorAll('button.active')).map(b => b.textContent)
+    expect(active()).toEqual(['a'])
+
+    el.querySelectorAll('button')[1].click()
+    await flush()
+    expect(active()).toEqual(['b'])
+  })
 })
 
 // ---- Style binding ----
@@ -1149,6 +1202,53 @@ describe('function-form when', () => {
     await flush()
 
     expect(el.querySelector('span')!.textContent).toBe('welcome')
+  })
+
+  it('inside each: reads loop variables and re-evaluates on item and state changes', async () => {
+    const { el } = mountApp({
+      state: { items: [{ id: 1, score: 9 }, { id: 2, score: 3 }], threshold: 5 },
+      methods: {
+        lower() { this.threshold = 1 },
+        drop() { this.items[0].score = 0 },
+      },
+      view: ($: any) => ({
+        div: { children: [
+          { each: $.items, as: 'item', key: 'id', children: [
+            { when: ($: any) => $.item.score > $.threshold, children: [{ b: { text: $.item.id } }] },
+          ] },
+          { button: { id: 'lower', text: 'lower', click: 'lower' } },
+          { button: { id: 'drop', text: 'drop', click: 'drop' } },
+        ] },
+      }),
+    })
+
+    const shown = () => Array.from(el.querySelectorAll('b')).map(b => b.textContent)
+    expect(shown()).toEqual(['1'])
+
+    el.querySelector<HTMLElement>('#lower')!.click()
+    await flush()
+    expect(shown()).toEqual(['1', '2'])
+
+    el.querySelector<HTMLElement>('#drop')!.click()
+    await flush()
+    expect(shown()).toEqual(['2'])
+  })
+
+  it('element-level inside nested each sees outer and inner loop variables', () => {
+    const { el } = mountApp({
+      state: { rows: [{ id: 1, max: 2 }], cols: [1, 2, 3] },
+      view: ($: any) => ({
+        div: { children: [
+          { each: $.rows, as: 'row', key: 'id', children: [
+            { each: $.cols, as: 'col', children: [
+              { i: { when: ($: any) => $.col <= $.row.max, text: $.col } },
+            ] },
+          ] },
+        ] },
+      }),
+    })
+
+    expect(Array.from(el.querySelectorAll('i')).map(i => i.textContent)).toEqual(['1', '2'])
   })
 
   it('mixed: function-form and ref-form coexist', async () => {

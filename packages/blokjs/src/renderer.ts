@@ -24,10 +24,23 @@ const EVENT_NAMES: Record<string, 1> = {
   dragstart: 1, dragend: 1, dragover: 1, dragleave: 1, drop: 1,
 }
 
-// Resolve a `when` condition: supports function form ($) => expr, refs, and static values
-function resolveCondition(val: any, ctx: RenderCtx): any {
-  if (typeof val === 'function') return val(ctx.inst.context)
-  return resolve(val, ctx)
+// Reader for a binding value: function form ($) => expr, ref, or static value
+function createReader(val: any, ctx: RenderCtx): () => any {
+  if (typeof val !== 'function') return () => resolve(val, ctx)
+  const $ = functionContext(ctx)
+  return () => val($)
+}
+
+// Function-form `$`: loop variables shadow component context keys, same as refs
+function functionContext(ctx: RenderCtx): any {
+  const { iterVars } = ctx
+  if (iterVars.size === 0) return ctx.inst.context
+  return new Proxy(ctx.inst.context, {
+    get(target, key) {
+      if (typeof key === 'string' && iterVars.has(key)) return iterVars.get(key)!()
+      return target[key]
+    },
+  })
 }
 
 // Resolve a ref (or static value) to its current value
@@ -174,7 +187,7 @@ function renderElement(tag: string, value: any, ctx: RenderCtx): Node[] {
 function renderConditionalElement(tag: string, opts: Record<string, any>, ctx: RenderCtx): Node[] {
   const startMarker = document.createComment(`if:${tag}`)
   const endMarker = document.createComment(`/if:${tag}`)
-  const condRef = opts.when
+  const readCond = createReader(opts.when, ctx)
   const restOpts = { ...opts }
   delete restOpts.when
 
@@ -182,7 +195,7 @@ function renderConditionalElement(tag: string, opts: Record<string, any>, ctx: R
   let childScope: Scope | null = null
 
   createEffect(() => {
-    const show = !!resolveCondition(condRef, ctx)
+    const show = !!readCond()
 
     if (childScope) { childScope.dispose(); childScope = null }
     if (currentEl) { currentEl.remove(); currentEl = null }
@@ -207,14 +220,14 @@ function renderConditionalElement(tag: string, opts: Record<string, any>, ctx: R
 function renderWhen(tpl: any, ctx: RenderCtx): Node[] {
   const startMarker = document.createComment('when')
   const endMarker = document.createComment('/when')
-  const condRef = tpl.when
+  const readCond = createReader(tpl.when, ctx)
   const childTemplates: any[] = tpl.children || []
 
   let childScope: Scope | null = null
   let initialNodes: Node[] | null = null as Node[] | null
 
   createEffect(() => {
-    const show = !!resolveCondition(condRef, ctx)
+    const show = !!readCond()
 
     if (childScope) { childScope.dispose(); childScope = null }
     // Marker-based cleanup: removes all nodes between markers including
@@ -649,8 +662,9 @@ function applyClassItem(el: HTMLElement, val: any, ctx: RenderCtx): void {
 
 function applyClassObject(el: HTMLElement, val: Record<string, any>, ctx: RenderCtx): void {
   for (const [cls, cond] of Object.entries(val)) {
-    if (isRef(cond)) {
-      createEffect(() => { el.classList.toggle(cls, !!resolve(cond, ctx)) }, ctx.scope)
+    if (isRef(cond) || typeof cond === 'function') {
+      const read = createReader(cond, ctx)
+      createEffect(() => { el.classList.toggle(cls, !!read()) }, ctx.scope)
     } else {
       if (cond) el.classList.add(cls)
     }

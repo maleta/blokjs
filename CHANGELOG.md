@@ -7,8 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Function form in class object values: `class: { active: ($) => $.grp.name === $.activeGroup }`
+
 ### Fixed
 
+- Function-form `when` inside `each` can read loop variables (`$.item`) - it threw a TypeError that aborted the whole mount
 - View refs no longer intercept data properties named `path` or `negate` - `$.item.path` rendered the loop variable name instead of the value, and `$.path` rendered an empty string
 
 ## [0.3.1] - 2026-04-04
