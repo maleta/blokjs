@@ -135,6 +135,7 @@
               nav('browser-support', 'Browser Support'),
               nav('quick-start', 'Quick Start'),
               nav('vite-plugin', 'Using with Vite'),
+              nav('pocketbase', 'Using with PocketBase'),
               nav('full-example', 'Full Example'),
             ),
             grp('API',
@@ -295,6 +296,52 @@
               c(`// components/counter.js\nexport default {\n  state: { count: 0 },\n  methods: {\n    increment() { this.count++ },\n    decrement() { this.count-- },\n  },\n  view: ($) => ({\n    div: { children: [\n      { h1: { text: $.count } },\n      { button: { click: 'decrement', text: '-' } },\n      { button: { click: 'increment', text: '+' } },\n    ] },\n  }),\n}`),
               sub('vite-options', 'Plugin Options'),
               c(`blokjs({\n  componentsDir: 'components', // default\n  storesDir: 'stores',         // default\n})`),
+            ),
+
+            // --- Using with PocketBase ---
+            sec('pocketbase', 'Using with PocketBase',
+              p('The @maleta/blokjs-pocketbase package turns a PocketBase collection into a BlokJS store. Records load into items and follow realtime changes. Every method gets loading and error tracking like any async store method. pbAuth does the same for the signed-in user. The app supplies the PocketBase SDK client.'),
+              c(`<script src="https://cdn.jsdelivr.net/npm/@maleta/blokjs/dist/blokjs.min.js"><\/script>
+<script src="https://cdn.jsdelivr.net/npm/pocketbase@0.28/dist/pocketbase.umd.js"><\/script>
+<script src="https://cdn.jsdelivr.net/npm/@maleta/blokjs-pocketbase/dist/blokjs-pocketbase.min.js"><\/script>`, 'markup'),
+              c(`const pb = new PocketBase('/')
+blok.store('todos', blokPocketbase.pbCollection(pb, 'todos', { sort: '-created' }))
+
+blok.mount('#app', {
+  mount() { this.store.todos.connect() },
+  methods: {
+    add() { this.store.todos.save({ title: 'New todo' }) },
+    toggle(todo) { this.store.todos.save({ id: todo.id, done: !todo.done }) },
+    remove(todo) { this.store.todos.remove(todo.id) },
+  },
+  view: ($) => ({ div: { children: [
+    { button: { click: 'add', text: 'Add' } },
+    { when: $.store.todos.loading.connect, children: [{ p: 'Loading...' }] },
+    { each: $.store.todos.items, as: 'todo', key: 'id', children: [
+      { p: { text: $.todo.title, click: 'toggle(todo)' } },
+    ] },
+  ] } }),
+})`),
+              sub('pocketbase-collection', 'pbCollection(pb, name, options)'),
+              tbl(['Member', 'Description'], [
+                [ic('items'), 'The records, in sort order'],
+                [ic('load()'), 'Fetch all matching records into items'],
+                [ic('connect()'), 'load(), then apply realtime creates, updates and deletes until disconnect()'],
+                [ic('disconnect()'), 'Stop following realtime changes'],
+                [ic('save(data)'), 'Update when data.id is set, otherwise create. Returns the saved record'],
+                [ic('remove(id)'), 'Delete the record'],
+              ]),
+              p('Options: filter, sort, expand and fields pass through to PocketBase. key names a field with a unique index, so save() without an id updates the record with the same key instead of failing.'),
+              note('A store with a filter, or with a sort that is not plain fields, reloads the list on each change: PocketBase sends no event when a record stops matching a filter. Connected stores also reload after a realtime reconnect and when the signed-in user changes.'),
+              sub('pocketbase-auth', 'pbAuth(pb, options)'),
+              tbl(['Member', 'Description'], [
+                [ic('user'), 'The signed-in record (a copy), or null'],
+                [ic('isLoggedIn'), 'Computed: user !== null'],
+                [ic('connect()'), 'Validate a saved session with the server and follow auth changes from anywhere, including other tabs'],
+                [ic('login(identity, password)'), 'Password login against options.collection (default users)'],
+                [ic('logout()'), 'Clear the session'],
+              ]),
+              p('Create collections with a PocketBase migration or the admin UI. Serve the app from PocketBase\'s pb_public directory so the page and the API share an origin. See examples/pocketbase for a runnable app.'),
             ),
 
             // --- blok.component() ---

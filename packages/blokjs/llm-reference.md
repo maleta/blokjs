@@ -323,6 +323,49 @@ Works for both component methods and store methods:
 
 ---
 
+## PocketBase (`@maleta/blokjs-pocketbase`)
+
+Separate package. It returns store definitions backed by a PocketBase collection or by `pb.authStore`. The app supplies the `pocketbase` SDK client.
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/pocketbase@0.28/dist/pocketbase.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@maleta/blokjs-pocketbase/dist/blokjs-pocketbase.min.js"></script>
+```
+
+```js
+const pb = new PocketBase('/')
+const { pbCollection, pbAuth } = blokPocketbase   // ESM: import { pbCollection, pbAuth } from '@maleta/blokjs-pocketbase'
+
+blok.store('todos', pbCollection(pb, 'todos', { sort: '-created', filter: 'done = false', expand: 'owner', key: 'slug' }))
+blok.store('auth', pbAuth(pb))   // option: { collection: 'users' }
+
+blok.mount('#app', {
+  mount() {
+    this.store.auth.connect()    // validate saved session, follow auth changes
+    this.store.todos.connect()   // load, then apply realtime changes
+  },
+  methods: {
+    add() { this.store.todos.save({ title: 'x' }) },                 // no id: create
+    toggle(t) { this.store.todos.save({ id: t.id, done: !t.done }) }, // id: update
+    remove(t) { this.store.todos.remove(t.id) },
+  },
+  view: ($) => ({ div: { children: [
+    { when: $.store.todos.loading.connect, children: [{ p: 'Loading...' }] },
+    { each: $.store.todos.items, as: 't', key: 'id', children: [{ p: { text: $.t.title } }] },
+    { when: $.store.auth.isLoggedIn, children: [{ span: { text: $.store.auth.user.email } }] },
+  ] } }),
+})
+```
+
+- Collection store: `items`; `load()`, `connect()`, `disconnect()`, `save(data)` (returns the record), `remove(id)`. All async, so `loading.<method>` and `error.<method>` work.
+- Auth store: `user` (copy of the record or `null`), `isLoggedIn`; `connect()`, `login(identity, password)`, `logout()`.
+- `key`: a field with a unique index. `save()` without `id` updates the record with the same key instead of failing.
+- A store with `filter`, or with a sort that is not plain fields, reloads the list on each change instead of patching.
+- Connected collection stores reconnect and reload when the signed-in user changes.
+- Call `connect()` once per store (root `mount()`). Collections come from PocketBase migrations or the admin UI, never from the page.
+
+---
+
 ## Router
 
 ```js

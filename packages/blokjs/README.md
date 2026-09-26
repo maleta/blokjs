@@ -227,6 +227,36 @@ stores/app.js           -> store('app', ...)
 components/_helper.js   -> ignored
 ```
 
+## Using with PocketBase
+
+[`@maleta/blokjs-pocketbase`](https://www.npmjs.com/package/@maleta/blokjs-pocketbase) turns a [PocketBase](https://pocketbase.io) collection into a BlokJS store: records load into `items`, follow realtime changes, and get `loading`/`error` tracking like any async store method. `pbAuth` does the same for the signed-in user.
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/@maleta/blokjs/dist/blokjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pocketbase@0.28/dist/pocketbase.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@maleta/blokjs-pocketbase/dist/blokjs-pocketbase.min.js"></script>
+```
+
+```js
+const pb = new PocketBase('/')
+blok.store('todos', blokPocketbase.pbCollection(pb, 'todos', { sort: '-created' }))
+
+blok.mount('#app', {
+  mount() { this.store.todos.connect() },
+  methods: {
+    add() { this.store.todos.save({ title: 'New todo' }) },
+  },
+  view: ($) => ({ div: { children: [
+    { button: { click: 'add', text: 'Add' } },
+    { each: $.store.todos.items, as: 'todo', key: 'id', children: [
+      { p: { text: $.todo.title } },
+    ] },
+  ] } }),
+})
+```
+
+See the [package README](https://github.com/maleta/blokjs/tree/main/packages/blokjs-pocketbase#readme) for the full API and [`examples/pocketbase`](https://github.com/maleta/blokjs/tree/main/examples/pocketbase) for a runnable app.
+
 ## Browser Compatibility
 
 BlokJS supports all [ES2020-compliant](https://caniuse.com/?search=es2020) browsers ([96%+ global coverage](https://caniuse.com/proxy)). IE is not supported.

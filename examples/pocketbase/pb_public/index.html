@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BlokJS + PocketBase Todos</title>
+  <style>
+    body { font-family: system-ui; max-width: 560px; margin: 40px auto; padding: 0 16px; }
+    form { display: flex; gap: 8px; margin-bottom: 16px; }
+    input[type=text] { flex: 1; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; }
+    button { padding: 8px 14px; border: none; border-radius: 4px; background: #f59e0b; color: white; cursor: pointer; }
+    ul { list-style: none; padding: 0; }
+    li { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
+    li span { flex: 1; }
+    li.done span { text-decoration: line-through; color: #9ca3af; }
+    li button { background: none; color: #ef4444; }
+    .muted { color: #6b7280; }
+    .error { color: #ef4444; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@maleta/blokjs/dist/blokjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pocketbase@0.28/dist/pocketbase.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@maleta/blokjs-pocketbase/dist/blokjs-pocketbase.min.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    // Served by PocketBase from pb_public, so the API is on the same origin.
+    const pb = new PocketBase('/')
+
+    blok.store('todos', blokPocketbase.pbCollection(pb, 'todos', { sort: '-created' }))
+
+    blok.mount('#app', {
+      state: { title: '' },
+
+      mount() {
+        this.store.todos.connect()
+      },
+
+      methods: {
+        async add() {
+          const title = this.title.trim()
+          if (!title) return
+          await this.store.todos.save({ title })
+          this.title = ''
+        },
+        toggle(todo) {
+          this.store.todos.save({ id: todo.id, done: !todo.done })
+        },
+        remove(todo) {
+          this.store.todos.remove(todo.id)
+        },
+      },
+
+      view: ($) => ({
+        div: { children: [
+          { h1: 'Todos' },
+          { form: { submit: 'add', children: [
+            { input: { type: 'text', model: $.title, placeholder: 'What needs doing?' } },
+            { button: { type: 'submit', text: 'Add' } },
+          ] } },
+          { when: $.store.todos.loading.connect, children: [
+            { p: { class: 'muted', text: 'Loading...' } },
+          ] },
+          { when: $.store.todos.error.connect, children: [
+            { p: { class: 'error', text: $.store.todos.error.connect } },
+          ] },
+          { ul: { children: [
+            { each: $.store.todos.items, as: 'todo', key: 'id', children: [
+              { li: { class: { done: $.todo.done }, children: [
+                { input: { type: 'checkbox', props: { checked: $.todo.done }, change: 'toggle(todo)' } },
+                { span: { text: $.todo.title } },
+                { button: { click: 'remove(todo)', text: 'Delete' } },
+              ] } },
+            ] },
+          ] } },
+          { p: { class: 'muted', text: 'Open this page in two tabs: changes appear in both.' } },
+        ] },
+      }),
+    })
+  </script>
+</body>
+</html>

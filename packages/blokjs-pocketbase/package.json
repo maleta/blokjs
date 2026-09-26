@@ -1,0 +1,57 @@
+{
+  "name": "@maleta/blokjs-pocketbase",
+  "version": "0.1.0",
+  "description": "PocketBase collections and auth as reactive BlokJS stores",
+  "type": "module",
+  "module": "dist/blokjs-pocketbase.esm.js",
+  "unpkg": "dist/blokjs-pocketbase.min.js",
+  "jsdelivr": "dist/blokjs-pocketbase.min.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/blokjs-pocketbase.esm.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsx build.ts && tsc --emitDeclarationOnly --outDir dist",
+    "test": "vitest run",
+    "prepublishOnly": "pnpm run build && pnpm test"
+  },
+  "peerDependencies": {
+    "@maleta/blokjs": ">=0.4.0",
+    "pocketbase": ">=0.26.0 <1.0.0"
+  },
+  "devDependencies": {
+    "@maleta/blokjs": "workspace:*",
+    "esbuild": "^0.24.0",
+    "eventsource": "^5.1.2",
+    "happy-dom": "^17.6.3",
+    "pocketbase": "^0.28.1",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.4"
+  },
+  "keywords": [
+    "blokjs",
+    "pocketbase",
+    "store",
+    "realtime"
+  ],
+  "author": "maleta",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maleta/blokjs.git"
+  },
+  "bugs": {
+    "url": "https://github.com/maleta/blokjs/issues"
+  },
+  "homepage": "https://github.com/maleta/blokjs/tree/main/packages/blokjs-pocketbase"
+}
