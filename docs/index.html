@@ -83,8 +83,727 @@
   </style>
 </head>
 <body>
-  <div id="app"></div>
-  <script src="https://cdn.jsdelivr.net/npm/@maleta/blokjs/dist/blokjs.min.js"></script>
+  <div id="app" data-blok-ssr><div class="layout"><nav class="sidebar"><div><span class="logo">BlokJS</span><span class="version">v0.5.0</span></div><div class="nav-group"><div class="nav-title">Getting Started</div><a href="#introduction">Introduction</a><a href="#browser-support">Browser Support</a><a href="#quick-start">Quick Start</a><a href="#vite-plugin">Using with Vite</a><a href="#pocketbase">Using with PocketBase</a><a href="#prerender">Prerender &amp; Hydration</a><a href="#full-example">Full Example</a></div><div class="nav-group"><div class="nav-title">API</div><a href="#blokjs-component">blok.component()</a><a href="#blokjs-mount">blok.mount()</a><a href="#blokjs-store">blok.store()</a></div><div class="nav-group"><div class="nav-title">Context</div><a href="#context">this.*</a></div><div class="nav-group"><div class="nav-title">Component Definition</div><a href="#props">Props</a><a href="#state">State</a><a href="#computed">Computed</a><a href="#watch">Watch</a><a href="#methods">Methods</a><a href="#async-methods">Async Methods</a><a href="#lifecycle">Lifecycle</a><a href="#view-fn">View Function</a></div><div class="nav-group"><div class="nav-title">View DSL ($)</div><a href="#ref-proxy">Creating Refs</a><a href="#negation">Negation</a><a href="#iter-vars">Iteration Variables</a></div><div class="nav-group"><div class="nav-title">Binding</div><a href="#elements">Elements</a><a href="#text-bind">Text</a><a href="#html-binding">HTML</a><a href="#children">Children</a><a href="#classes">Classes</a><a href="#styles">Styles</a><a href="#attributes">Attributes</a></div><div class="nav-group"><div class="nav-title">Interaction</div><a href="#model">Model</a><a href="#events">Events</a></div><div class="nav-group"><div class="nav-title">Control Flow</div><a href="#conditionals">Conditionals</a><a href="#loops">Loops</a></div><div class="nav-group"><div class="nav-title">Composition</div><a href="#components">Components</a><a href="#slots">Slots</a><a href="#refs">Refs</a></div><div class="nav-group"><div class="nav-title">Router</div><a href="#router">Overview</a><a href="#route-outlet">Route Outlet</a><a href="#route-links">Route Links</a><a href="#route-params">Params &amp; Query</a><a href="#route-guards">Guards</a><a href="#route-modes">Modes</a></div><div class="nav-group"><div class="nav-title">Reactivity</div><a href="#reactivity">Overview</a><a href="#array-mutations">Array Mutations</a><a href="#batching">Batching</a></div><div class="nav-group"><div class="nav-title">Validation</div><a href="#validate-api">validate.*</a><a href="#validate-checks">What Gets Caught</a></div></nav><main class="content"><div id="introduction" class="section"><h2>Introduction</h2><p>BlokJS is a zero-build, zero-dependency, standalone, reactive, lightweight UI framework. ~8 KB gzipped - just a script tag and plain JavaScript objects that describe your UI. State is reactive via ES Proxy - when data changes, only the affected DOM bindings update. Components, routing, stores, and async tracking are all built in.</p><p>See the <a href="#full-example">Full Example: Task Board</a> for a complete single-file app that exercises every feature.</p><p>Using an LLM to write BlokJS code? Include the <a href="https://github.com/maleta/blokjs/blob/main/packages/blokjs/llm-reference.md">LLM Reference</a> (~4,700 tokens) in your context for best results.</p></div><div id="browser-support" class="section"><h2>Browser Support</h2><p>BlokJS targets ES2020 and uses modern browser APIs. No polyfills or legacy fallbacks are included. The core dependency (ES Proxy) has <a href="https://caniuse.com/proxy">96%+ global browser support</a> per <a href="https://caniuse.com/">caniuse.com</a>.</p><div class="table-wrap"><table><thead><tr><th>Browser</th><th>Minimum Version</th></tr></thead><tbody><tr><td>Chrome</td><td>91+</td></tr><tr><td>Edge</td><td>91+</td></tr><tr><td>Firefox</td><td>88+</td></tr><tr><td>Safari</td><td>14.1+</td></tr><tr><td>Internet Explorer</td><td>Not supported</td></tr></tbody></table></div><h3 id="required-apis">Required APIs</h3><p>The framework relies on these modern JavaScript features:</p><div class="table-wrap"><table><thead><tr><th>API</th><th>Used For</th><th>Chrome</th><th>Firefox</th><th>Safari</th></tr></thead><tbody><tr><td>ES Proxy / Reflect</td><td>Core reactivity system</td><td>49+</td><td>18+</td><td>10+</td></tr><tr><td>WeakMap / Set / Symbol</td><td>Dependency tracking and internal references</td><td>36+</td><td>6+</td><td>9+</td></tr><tr><td><code class="ic">queueMicrotask</code></td><td>Batched DOM updates</td><td>71+</td><td>69+</td><td>12.1+</td></tr><tr><td><code class="ic">globalThis</code></td><td>Environment detection</td><td>71+</td><td>65+</td><td>12.1+</td></tr></tbody></table></div><p 0="[object Object]" 1=" is used for deep cloning state and store data when available (Safari 15.4+, Chrome 98+), but is " 2="[object Object]" 3=" - the framework falls back to a shallow copy on older browsers."></p></div><div id="quick-start" class="section"><h2>Quick Start</h2><h3 id="quick-start-cdn">CDN (No Build Step)</h3><p>Include BlokJS from a CDN and write your app in a single HTML file:</p><pre class="code-block"><code class="language-markup">&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+  &lt;meta charset="utf-8"&gt;
+  &lt;script src="https://cdn.jsdelivr.net/npm/@maleta/blokjs/dist/blokjs.min.js"&gt;&lt;/script&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;div id="app"&gt;&lt;/div&gt;
+  &lt;script&gt;
+    blok.mount('#app', {
+      state: { count: 0 },
+
+      methods: {
+        inc() { this.count++ },
+        dec() { this.count-- },
+      },
+
+      view: ($) =&gt; ({
+        div: { children: [
+          { h1: { text: $.count } },
+          { button: { click: 'dec', text: '-' } },
+          { button: { click: 'inc', text: '+' } },
+        ] }
+      })
+    })
+  &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre><p>The CDN script exposes a global <code class="ic">blok</code> object with <code class="ic">component</code>, <code class="ic">store</code>, and <code class="ic">mount</code> methods. State is reactive - when count changes, the bound h1 updates automatically.</p><p>The vanilla approach gives you full control over loading. You can split components across separate files and load them on demand - no bundler decides what ships in your initial payload:</p><pre class="code-block"><code class="language-markup">&lt;!-- index.html --&gt;
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+  &lt;script src="https://cdn.jsdelivr.net/npm/@maleta/blokjs/dist/blokjs.min.js"&gt;&lt;/script&gt;
+  &lt;!-- Deferred scripts load in parallel but execute after HTML is parsed --&gt;
+  &lt;script src="/components/admin-panel.js" defer&gt;&lt;/script&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;div id="app"&gt;&lt;/div&gt;
+  &lt;script defer&gt;
+    blok.mount('#app', {
+      view: () =&gt; ({ 'admin-panel': {} })
+    })
+  &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre><pre class="code-block"><code class="language-javascript">// components/admin-panel.js
+blok.component('AdminPanel', {
+  state: { users: [] },
+
+  mount() {
+    fetch('/api/users')
+      .then(r =&gt; r.json())
+      .then(data =&gt; { this.users = data })
+  },
+
+  view: ($) =&gt; ({
+    div: { children: [
+      { h2: { text: 'Admin Panel' } },
+      { ul: { children: $.users.map(u =&gt; ({ li: { text: u.name } })) } },
+    ] }
+  })
+})</code></pre><p>The <code class="ic">defer</code> attribute tells the browser to download the script in parallel while parsing HTML, then execute it - in source order - once the document is fully parsed. This means <code class="ic">admin-panel.js</code> registers the component before <code class="ic">blok.mount</code> runs, with zero render-blocking.</p><h3 id="quick-start-vite">Vite (Build Tool)</h3><p>For larger projects, use the Vite plugin for auto-discovery, bundling, and HMR. See <a href="#vite-plugin">Using with Vite</a>.</p><p>Want to see every feature in one place? <a href="#full-example">Jump to the Task Board →</a></p></div><div id="vite-plugin" class="section"><h2>Using with Vite</h2><p>While BlokJS works without a build step, the Vite plugin adds conveniences for larger projects: automatic component and store registration from file directories, bundling everything into optimized output, and hot module replacement during development.</p><p>Scaffold a new project in one command:</p><pre class="code-block"><code class="language-javascript">npm create blokjs my-app
+cd my-app
+npm install
+npx vite</code></pre><h3 id="vite-manual">Manual Setup</h3><p>Add to an existing Vite project:</p><pre class="code-block"><code class="language-javascript">npm install blokjs vite-plugin-blokjs</code></pre><p>Project structure:</p><pre class="code-block"><code class="language-javascript">my-app/
+  index.html
+  main.js
+  vite.config.js
+  components/
+    counter.js
+  stores/
+    app.js</code></pre><pre class="code-block"><code class="language-markup">&lt;!-- index.html --&gt;
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;&lt;meta charset="utf-8"&gt;&lt;/head&gt;
+&lt;body&gt;
+  &lt;div id="app"&gt;&lt;/div&gt;
+  &lt;script type="module" src="/main.js"&gt;&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre><pre class="code-block"><code class="language-javascript">// vite.config.js
+import { defineConfig } from 'vite'
+import { blokjs } from 'vite-plugin-blokjs'
+
+export default defineConfig({
+  plugins: [blokjs()],
+})</code></pre><pre class="code-block"><code class="language-javascript">// main.js
+import { mount } from '@maleta/blokjs'
+import 'virtual:blokjs'
+
+mount('#app', {
+  view: ($) =&gt; ({ counter: {} }),
+})</code></pre><h3 id="vite-dev-build">Dev Server &amp; Production Build</h3><pre class="code-block"><code class="language-javascript">npx vite          # dev server with HMR
+npx vite build    # bundle to dist/
+npx vite preview  # preview the production build</code></pre><h3 id="vite-auto">Auto-Registration</h3><p>The plugin scans <code class="ic">components/</code> and <code class="ic">stores/</code> directories, registering each file by its filename. Files prefixed with <code class="ic">_</code> are ignored.</p><pre class="code-block"><code class="language-javascript">components/counter.js   -&gt; component('counter', ...)
+stores/app.js           -&gt; store('app', ...)
+components/_helper.js   -&gt; ignored</code></pre><p>Component and store files use default exports:</p><pre class="code-block"><code class="language-javascript">// components/counter.js
+export default {
+  state: { count: 0 },
+  methods: {
+    increment() { this.count++ },
+    decrement() { this.count-- },
+  },
+  view: ($) =&gt; ({
+    div: { children: [
+      { h1: { text: $.count } },
+      { button: { click: 'decrement', text: '-' } },
+      { button: { click: 'increment', text: '+' } },
+    ] },
+  }),
+}</code></pre><h3 id="vite-options">Plugin Options</h3><pre class="code-block"><code class="language-javascript">blokjs({
+  componentsDir: 'components', // default
+  storesDir: 'stores',         // default
+})</code></pre></div><div id="pocketbase" class="section"><h2>Using with PocketBase</h2><p>The @maleta/blokjs-pocketbase package turns a PocketBase collection into a BlokJS store. Records load into items and follow realtime changes. Every method gets loading and error tracking like any async store method. pbAuth does the same for the signed-in user. The app supplies the PocketBase SDK client.</p><pre class="code-block"><code class="language-markup">&lt;script src="https://cdn.jsdelivr.net/npm/@maleta/blokjs/dist/blokjs.min.js"&gt;&lt;/script&gt;
+&lt;script src="https://cdn.jsdelivr.net/npm/pocketbase@0.28/dist/pocketbase.umd.js"&gt;&lt;/script&gt;
+&lt;script src="https://cdn.jsdelivr.net/npm/@maleta/blokjs-pocketbase/dist/blokjs-pocketbase.min.js"&gt;&lt;/script&gt;</code></pre><pre class="code-block"><code class="language-javascript">const pb = new PocketBase('/')
+blok.store('todos', blokPocketbase.pbCollection(pb, 'todos', { sort: '-created' }))
+
+blok.mount('#app', {
+  mount() { this.store.todos.connect() },
+  methods: {
+    add() { this.store.todos.save({ title: 'New todo' }) },
+    toggle(todo) { this.store.todos.save({ id: todo.id, done: !todo.done }) },
+    remove(todo) { this.store.todos.remove(todo.id) },
+  },
+  view: ($) =&gt; ({ div: { children: [
+    { button: { click: 'add', text: 'Add' } },
+    { when: $.store.todos.loading.connect, children: [{ p: 'Loading...' }] },
+    { each: $.store.todos.items, as: 'todo', key: 'id', children: [
+      { p: { text: $.todo.title, click: 'toggle(todo)' } },
+    ] },
+  ] } }),
+})</code></pre><h3 id="pocketbase-collection">pbCollection(pb, name, options)</h3><div class="table-wrap"><table><thead><tr><th>Member</th><th>Description</th></tr></thead><tbody><tr><td><code class="ic">items</code></td><td>The records, in sort order</td></tr><tr><td><code class="ic">load()</code></td><td>Fetch all matching records into items</td></tr><tr><td><code class="ic">connect()</code></td><td>load(), then apply realtime creates, updates and deletes until disconnect()</td></tr><tr><td><code class="ic">disconnect()</code></td><td>Stop following realtime changes</td></tr><tr><td><code class="ic">save(data)</code></td><td>Update when data.id is set, otherwise create. Returns the saved record</td></tr><tr><td><code class="ic">remove(id)</code></td><td>Delete the record</td></tr></tbody></table></div><p>Options: filter, sort, expand and fields pass through to PocketBase. key names a field with a unique index, so save() without an id updates the record with the same key instead of failing.</p><div class="note">A store with a filter, or with a sort that is not plain fields, reloads the list on each change: PocketBase sends no event when a record stops matching a filter. Connected stores also reload after a realtime reconnect and when the signed-in user changes.</div><h3 id="pocketbase-auth">pbAuth(pb, options)</h3><div class="table-wrap"><table><thead><tr><th>Member</th><th>Description</th></tr></thead><tbody><tr><td><code class="ic">user</code></td><td>The signed-in record (a copy), or null</td></tr><tr><td><code class="ic">isLoggedIn</code></td><td>Computed: user !== null</td></tr><tr><td><code class="ic">connect()</code></td><td>Validate a saved session with the server and follow auth changes from anywhere, including other tabs</td></tr><tr><td><code class="ic">login(identity, password)</code></td><td>Password login against options.collection (default users)</td></tr><tr><td><code class="ic">logout()</code></td><td>Clear the session</td></tr></tbody></table></div><p>Create collections with a PocketBase migration or the admin UI. Serve the app from PocketBase's pb_public directory so the page and the API share an origin. See examples/pocketbase for a runnable app.</p></div><div id="prerender" class="section"><h2>Prerender &amp; Hydration</h2><p>A BlokJS page renders in the browser, so clients that do not run JavaScript (crawlers other than Google, link previews, payment provider site reviews, curl) see an empty mount node. Prerendering writes the rendered HTML into the page as a build step. The app keeps working without that step; it only adds HTML for those clients.</p><pre class="code-block"><code class="language-none">bunx blokjs-prerender index.html
+bunx blokjs-prerender index.html --routes / /about --out dist
+bunx blokjs-prerender index.html --inline --out dist</code></pre><p>The CLI runs the scripts of the page (inline, local files and module scripts) with a server build of blok, renders every blok.mount() call, and writes the HTML into the mount node together with a data-blok-ssr attribute. Without --routes it renders every route that has no :param, no wildcard and no guard. The route /about is written to about.html, which static hosts serve at /about. Without --out the page is updated in place, and running it again replaces the earlier output.</p><p>With --inline, every output file is self-contained: local scripts and stylesheets are minified and embedded, and the blokjs script tag is replaced by the runtime that rendered the HTML, so the two always match. Remote scripts and stylesheets stay external, and images and fonts are not copied. --inline needs --out, so the source page stays as it is.</p><p>In the browser, blok.mount() sees data-blok-ssr and adopts the existing nodes instead of creating new ones. Nothing is duplicated or flashes, and focus, scroll position, iframes and text typed before the script loaded are kept. When the HTML does not match the view, mount() renders fresh, and development builds log where the difference is.</p><h3 id="prerender-server">renderToString(opts, options)</h3><p>Servers and custom build scripts get the same HTML from the server entry. It runs the regular renderer against a small built-in DOM, with no browser and no dependencies.</p><pre class="code-block"><code class="language-javascript">import { component, renderToString } from '@maleta/blokjs/server'
+
+component('Hello', { props: ['name'], view: ($) =&gt; ({ h1: $.name }) })
+
+const html = renderToString({
+  state: { who: 'world' },
+  view: ($) =&gt; ({ Hello: { name: $.who } }),
+}, { url: '/' })
+// &lt;div id="app" data-blok-ssr&gt;${html}&lt;/div&gt;</code></pre><div class="note">On the server, register components and stores through @maleta/blokjs/server. It has its own registry, separate from the browser build.</div><h3 id="prerender-limits">Limits</h3><ul style="font-size:14px; line-height:1.8; margin:10px 0 16px 20px; color:#333"><li>mount() and unmount() hooks, route guards and event handlers do not run on the server. Data loaded in mount() is not in the HTML; the page shows what the view shows before that data arrives.</li><li>Page scripts must not touch the DOM at the top level; move that code into mount(). localStorage returns null during prerendering. CDN scripts other than blokjs, and module scripts that import remote URLs, are not evaluated.</li><li>Without --inline, pin the blokjs version in the CDN URL. A cached older runtime appends to the prerendered HTML instead of adopting it, which shows the content twice.</li><li>Keep HTML comments in the output: they mark when and each blocks. A minifier that strips comments makes every page render fresh.</li><li>Markup that the HTML parser restructures cannot be adopted, for example tr directly inside table, or block elements inside p. renderToString warns about these.</li></ul></div><div id="blokjs-component" class="section"><h2>blok.component(name, def)</h2><p>Registers a reusable component. The name should start with an uppercase letter - lowercase names are treated as HTML elements, not components.</p><pre class="code-block"><code class="language-javascript">blok.component('UserCard', {
+  props: ['name', 'email'],
+
+  view: ($) =&gt; ({
+    div: { class: 'card', children: [
+      { h3: { text: $.name } },
+      { p: { text: $.email } },
+    ] }
+  })
+})</code></pre><p>Components are used in templates by name:</p><pre class="code-block"><code class="language-javascript">{ UserCard: { name: 'Alice', email: 'alice@example.com' } }</code></pre><h3 id="component-def">Definition Shape</h3><div class="table-wrap"><table><thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td><code class="ic">props</code></td><td><code class="ic">string[]</code></td><td>Property names the component accepts from its parent</td></tr><tr><td><code class="ic">state</code></td><td><code class="ic">Record&lt;string, any&gt;</code></td><td>Initial reactive state (deep cloned via structuredClone when available, shallow copy otherwise)</td></tr><tr><td><code class="ic">computed</code></td><td><code class="ic">Record&lt;string, fn&gt;</code></td><td>Derived getter functions. Not cached - re-evaluates on every read</td></tr><tr><td><code class="ic">watch</code></td><td><code class="ic">Record&lt;string, fn&gt;</code></td><td>Watchers for top-level state/prop changes. Receives (newVal, oldVal)</td></tr><tr><td><code class="ic">methods</code></td><td><code class="ic">Record&lt;string, fn&gt;</code></td><td>Instance methods. Async methods get automatic loading/error tracking</td></tr><tr><td><code class="ic">mount</code></td><td><code class="ic">fn</code></td><td>Called after the component is inserted into the DOM</td></tr><tr><td><code class="ic">unmount</code></td><td><code class="ic">fn</code></td><td>Called when the component is destroyed</td></tr><tr><td><code class="ic">view</code></td><td><code class="ic">($) =&gt; object</code></td><td>Returns a template object describing the UI. Required</td></tr></tbody></table></div><p>Only <code class="ic">view</code> is required. All other properties are optional.</p></div><div id="blokjs-mount" class="section"><h2>blok.mount(target, opts)</h2><p>Mounts the root application onto a DOM element. Returns an object with a destroy() method.</p><pre class="code-block"><code class="language-javascript">const app = blok.mount('#app', {
+  state: { count: 0 },
+  view: ($) =&gt; ({ div: { text: $.count } })
+})
+
+// Tear down later
+app.destroy()</code></pre><p>The <code class="ic">target</code> can be a CSS selector string or an HTMLElement. After <code class="ic">destroy()</code>, all component and store registrations are lost - re-register them before mounting again.</p><h3 id="multi-mount">Multiple Mounts</h3><p>Multiple <code class="ic">blok.mount()</code> calls create independent app instances. By default they share the global component registry and store state:</p><pre class="code-block"><code class="language-javascript">// Shared (default) - both see the same stores and components
+blok.mount('#app1', { view: ($) =&gt; ({ MyWidget: {} }) })
+blok.mount('#app2', { view: ($) =&gt; ({ MyWidget: {} }) })
+
+// Isolated - own store state, copied component registry
+blok.mount('#sidebar', {
+  isolated: true,
+  view: ($) =&gt; ({ Nav: {} })
+})</code></pre><div class="note">Only one mount can declare routes. A second mount with routes throws an error.</div><p>When the target has the <code class="ic">data-blok-ssr</code> attribute, mount() adopts the HTML already inside it instead of rendering it again. See <a href="#prerender">Prerender &amp; Hydration</a>.</p><h3 id="mount-options">Root-Only Options</h3><p><code class="ic">blok.mount()</code> accepts all component definition options (props, state, computed, watch, methods, mount, unmount, view) plus these root-only options:</p><div class="table-wrap"><table><thead><tr><th>Option</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td><code class="ic">routes</code></td><td><code class="ic">RouteConfig[]</code></td><td>Route definitions for client-side routing</td></tr><tr><td><code class="ic">guards</code></td><td><code class="ic">Record&lt;string, fn&gt;</code></td><td>Named route guard functions</td></tr><tr><td><code class="ic">mode</code></td><td><code class="ic">'hash' | 'history' | 'auto'</code></td><td>Router mode (default: 'auto'). 'auto' uses hash for file:// URLs, history otherwise</td></tr><tr><td><code class="ic">isolated</code></td><td><code class="ic">boolean</code></td><td>When true, creates a fully sandboxed instance with its own store state and a copied component registry</td></tr></tbody></table></div></div><div id="blokjs-store" class="section"><h2>blok.store(name, def)</h2><p>Registers a named store with structured state, computed properties, and methods. Call before blok.mount(). Calling blok.store() with an already-registered name logs a warning and skips the duplicate.</p><pre class="code-block"><code class="language-javascript">blok.store('auth', {
+  state: { user: null, token: null },
+
+  computed: {
+    isLoggedIn() { return this.user !== null }
+  },
+
+  methods: {
+    logout() { this.user = null; this.token = null },
+    async login(email, password) {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password })
+      })
+      const data = await res.json()
+      this.user = data.user
+      this.token = data.token
+    }
+  }
+})</code></pre><div class="table-wrap"><table><thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td><code class="ic">state</code></td><td><code class="ic">Record&lt;string, any&gt;</code></td><td>Initial reactive state (deep cloned via structuredClone when available, shallow copy otherwise)</td></tr><tr><td><code class="ic">computed</code></td><td><code class="ic">Record&lt;string, fn&gt;</code></td><td>Derived values. this refers to the store proxy.</td></tr><tr><td><code class="ic">methods</code></td><td><code class="ic">Record&lt;string, fn&gt;</code></td><td>Actions. this refers to the store proxy. Async methods get automatic loading/error tracking. Store methods cannot access other stores via this — use component methods for cross-store interaction.</td></tr></tbody></table></div><h3 id="store-access">Accessing Stores</h3><pre class="code-block"><code class="language-javascript">// In methods / lifecycle
+this.store.auth.user          // state
+this.store.auth.isLoggedIn    // computed
+this.store.auth.login(e, p)   // method
+
+// In templates
+{ span: { text: $.store.auth.user.name } }
+{ when: $.store.auth.isLoggedIn, children: [...] }</code></pre><h3 id="store-loading">Store Loading &amp; Error</h3><p>Async store methods automatically get <code class="ic">loading</code> and <code class="ic">error</code> tracking (same pattern as <a href="#async-methods">component async methods</a>):</p><pre class="code-block"><code class="language-javascript">// In templates
+{ when: $.store.auth.loading.login, children: [
+  { p: 'Signing in...' }
+] }
+
+{ when: $.store.auth.error.login, children: [
+  { p: { class: 'error', text: $.store.auth.error.login } }
+] }
+
+// In methods
+this.store.auth.loading.login  // true while running
+this.store.auth.error.login    // rejection value (typically Error) or null</code></pre></div><div id="context" class="section"><h2>Context (this)</h2><p>Inside methods, computed, watch, and lifecycle hooks, <code class="ic">this</code> provides access to:</p><div class="table-wrap"><table><thead><tr><th>Property</th><th>Description</th></tr></thead><tbody><tr><td><code class="ic">this.&lt;state&gt;</code></td><td>Read/write local state properties</td></tr><tr><td><code class="ic">this.&lt;computed&gt;</code></td><td>Read computed values</td></tr><tr><td><code class="ic">this.&lt;method&gt;()</code></td><td>Call methods</td></tr><tr><td><code class="ic">this.&lt;prop&gt;</code></td><td>Read props passed by parent</td></tr><tr><td><code class="ic">this.store</code></td><td>Access named stores via this.store.&lt;name&gt; (read/write)</td></tr><tr><td><code class="ic">this.loading</code></td><td>Reactive loading state for async methods - this.loading.&lt;method&gt; is true while running</td></tr><tr><td><code class="ic">this.error</code></td><td>Reactive error state for async methods - this.error.&lt;method&gt; holds the Error or null</td></tr><tr><td><code class="ic">this.route</code></td><td>{ path, params, query } - current route info</td></tr><tr><td><code class="ic">this.refs</code></td><td>Object of named DOM element references</td></tr><tr><td><code class="ic">this.el</code></td><td>The component's root DOM element</td></tr><tr><td><code class="ic">this.emit(event, payload?)</code></td><td>Emit an event to the parent component</td></tr><tr><td><code class="ic">this.navigate(to)</code></td><td>Navigate to a path (string) or history offset (number)</td></tr></tbody></table></div><pre class="code-block"><code class="language-javascript">methods: {
+  save() {
+    this.store.myStore.items.push({ name: this.name })  // write to store
+    this.name = ''                                // write to state
+    this.emit('saved')                            // notify parent
+    this.navigate('/')                            // go to home
+    this.refs.input.focus()                       // access DOM
+    console.log(this.route.params.id)             // read route
+    console.log(this.total)                       // read computed
+  }
+}</code></pre><div class="note">These names are reserved and cannot be used as state properties: store, loading, error, refs, el, route, emit, navigate.</div></div><div id="props" class="section"><h2>Props</h2><p>An array of property names the component accepts from its parent.</p><pre class="code-block"><code class="language-javascript">blok.component('Badge', {
+  props: ['label', 'color'],
+
+  view: ($) =&gt; ({
+    span: {
+      class: 'badge',
+      style: { backgroundColor: $.color },
+      text: $.label,
+    }
+  })
+})
+
+// Usage
+{ Badge: { label: 'New', color: '#f59e0b' } }</code></pre><p>Props passed as <code class="ic">$</code> refs are reactive — changes in the parent automatically update the child. Writing to a prop in the child writes back to the parent.</p><div class="note">The props array is declarative — BlokJS does not validate that passed props match the list. Any property passed to a component becomes a prop regardless.</div></div><div id="state" class="section"><h2>State</h2><p>Initial local reactive state. Each component instance gets a deep clone (via structuredClone when available, shallow copy otherwise). If state contains non-cloneable values (functions, DOM elements), a shallow copy is used instead.</p><pre class="code-block"><code class="language-javascript">state: { count: 0, items: [], filter: '' }</code></pre><p>Access and modify state on <code class="ic">this</code> inside methods, computed, watch, and lifecycle hooks:</p><pre class="code-block"><code class="language-javascript">methods: {
+  add() {
+    this.items.push({ name: this.newItem })
+    this.newItem = ''
+  }
+}</code></pre></div><div id="computed" class="section"><h2>Computed</h2><p>Derived getter functions. Computed values are lazy and memoized - they only re-evaluate when a tracked dependency changes, and cache the result until then.</p><pre class="code-block"><code class="language-javascript">computed: {
+  filtered() {
+    return this.items.filter(i =&gt; i.name.includes(this.filter))
+  },
+  total() {
+    return this.items.length
+  }
+}</code></pre><p>Access computed values like state: <code class="ic">this.total</code> or in templates via <code class="ic">$.total</code>.</p></div><div id="watch" class="section"><h2>Watch</h2><p>React to state, prop, or computed changes. The key is a property name or dot-notation path to watch.</p><pre class="code-block"><code class="language-javascript">watch: {
+  filter(newVal, oldVal) {
+    console.log(`filter changed: ${oldVal} -&gt; ${newVal}`)
+  },
+  count(val) {
+    if (val &gt; 100) this.count = 100
+  },
+  // Dot-notation paths work for nested state, store, and route
+  'route.path'(newPath) {
+    console.log('navigated to', newPath)
+  },
+  'store.auth.user'(user) {
+    console.log('auth user changed', user)
+  }
+}</code></pre><div class="note">Comparison uses reference equality (===), so mutating an object/array in-place won't trigger the watcher - reassign the whole value instead.</div><p>To trigger a watcher on nested changes, reassign the top-level value:</p><pre class="code-block"><code class="language-javascript">methods: {
+  updateUserName(name) {
+    // Won't trigger the 'user' watcher:
+    this.user.name = name
+
+    // Will trigger the 'user' watcher:
+    this.user = { ...this.user, name }
+  }
+}</code></pre><p>Watchers are best for side effects (API calls, localStorage sync). For derived values that depend on multiple properties, use <a href="#computed">computed</a> instead.</p></div><div id="methods" class="section"><h2>Methods</h2><p>Instance methods. The <code class="ic">this</code> context gives access to state, computed, store, and other methods. See <a href="#context">Context</a> for the full list.</p><pre class="code-block"><code class="language-javascript">methods: {
+  add() {
+    if (!this.newText.trim()) return
+    this.items.push({ text: this.newText.trim(), done: false })
+    this.newText = ''
+  },
+  remove(item) {
+    this.items = this.items.filter(i =&gt; i !== item)
+  }
+}</code></pre><p>Methods are referenced by name in event handlers: { click: 'add' }</p></div><div id="async-methods" class="section"><h2>Async Methods</h2><p>Methods that return a Promise automatically get reactive <code class="ic">loading</code> and <code class="ic">error</code> state. No extra boilerplate needed.</p><pre class="code-block"><code class="language-javascript">state: { users: [] },
+
+methods: {
+  async fetchUsers() {
+    const res = await fetch('/api/users')
+    this.users = await res.json()
+  }
+}
+
+// Automatic reactive state:
+// this.loading.fetchUsers → true while running, false after
+// this.error.fetchUsers   → Error if thrown, null otherwise</code></pre><h3 id="async-template">In Templates</h3><pre class="code-block"><code class="language-javascript">// Show loading state
+{ when: $.loading.fetchUsers, children: [
+  { p: 'Loading...' }
+] }
+
+// Show error
+{ when: $.error.fetchUsers, children: [
+  { p: { class: 'error', text: $.error.fetchUsers } }
+] }
+
+// Show content when not loading
+{ when: $.not.loading.fetchUsers, children: [
+  { ul: { children: [
+    { each: $.users, as: 'user', children: [
+      { li: { text: $.user.name } }
+    ] }
+  ] } }
+] }</code></pre><h3 id="async-behavior">Behavior</h3><p>When a method returns a Promise: <code class="ic">loading[name]</code> is set to <code class="ic">true</code> (immediately when the method returns a Promise), then <code class="ic">false</code> on resolve or reject. On rejection, <code class="ic">error[name]</code> is set to the Error object. On the next call, <code class="ic">error[name]</code> resets to <code class="ic">null</code>.</p><div class="note">Loading and error entries are created lazily - they only appear once a method first returns a Promise. Accessing them before that returns undefined (falsy), which is equivalent to false for boolean checks.</div></div><div id="lifecycle" class="section"><h2>Lifecycle</h2><div class="table-wrap"><table><thead><tr><th>Hook</th><th>Signature</th><th>Description</th></tr></thead><tbody><tr><td><code class="ic">mount</code></td><td><code class="ic">mount()</code></td><td>Called after the component is inserted into the DOM</td></tr><tr><td><code class="ic">unmount</code></td><td><code class="ic">unmount()</code></td><td>Called when the component is destroyed</td></tr></tbody></table></div><pre class="code-block"><code class="language-javascript">mount() {
+  this.interval = setInterval(() =&gt; this.count++, 1000)
+},
+unmount() {
+  clearInterval(this.interval)
+}</code></pre><p><code class="ic">mount</code> runs asynchronously via microtask - the component is already in the DOM but the call is deferred. This means DOM measurements (element sizes, scroll positions) are reliable, but <code class="ic">this.route</code> may not yet reflect the initial route during the very first mount.</p><p>Both hooks have full access to the <a href="#context">this.*</a> context including state, store, refs, and methods.</p></div><div id="view-fn" class="section"><h2>View Function</h2><p>The <code class="ic">view</code> function receives the <code class="ic">$</code> proxy and returns a template object. Called once — reactivity is handled by the refs.</p><pre class="code-block"><code class="language-javascript">view: ($) =&gt; ({
+  div: { class: 'container', children: [
+    { h1: { text: $.title } },
+    { p: { text: $.description } },
+    { button: { click: 'save', text: 'Save' } },
+  ] }
+})</code></pre><p>The returned object describes a single root element. Nest via children arrays. The view function is the only required property in a component definition — everything else is optional.</p></div><div id="view-dsl" class="section"><h2>View DSL ($)</h2><h3 id="ref-proxy">Creating Refs</h3><p>The <code class="ic">$</code> parameter in the view function is a Proxy. Property access creates reactive references (BlokRef) that are resolved at render time.</p><pre class="code-block"><code class="language-javascript">view: ($) =&gt; {
+  $.count        // ref to this.count (state/prop/computed)
+  $.store.auth.user   // ref to this.store.auth.user
+  $.item.name    // ref to iteration variable 'item', property 'name'
+
+  return { div: { text: $.count } }
+}</code></pre><div class="note">Refs are path descriptors, not values. JavaScript operators like !, &gt;, or .filter() do not work on refs - they operate on the proxy object itself, not the resolved value. Use $.not for negation and computed for complex logic.</div><h3 id="negation">Negation</h3><p><code class="ic">$.not</code> creates a negated ref. The resolved value is <code class="ic">!value</code>.</p><pre class="code-block"><code class="language-javascript">{ when: $.not.loading, children: [
+  { p: 'Content loaded!' }
+] }
+
+{ button: { disabled: $.not.canSubmit, text: 'Submit' } }
+
+// $.not only works at the start of the path
+$.not.active      // !this.active
+$.not.store.auth.isLoggedIn // !this.store.auth.isLoggedIn
+
+// This does NOT work:
+$.store.not.ready // 'not' becomes a property name, not negation</code></pre><h3 id="iter-vars">Iteration Variables</h3><p>Inside an <code class="ic">each</code> block, the <code class="ic">as</code> name becomes a ref on <code class="ic">$</code>:</p><pre class="code-block"><code class="language-javascript">{ each: $.todos, as: 'todo', children: [
+  { span: { text: $.todo.text } },
+  { input: { type: 'checkbox', model: $.todo.done } },
+] }
+
+// Default iteration variable name is 'item'
+{ each: $.items, children: [
+  { li: { text: $.item } }
+] }</code></pre></div><div id="elements" class="section"><h2>Elements</h2><p>A template object's key is the HTML tag name. The value defines its content.</p><pre class="code-block"><code class="language-javascript">{ div: 'Hello' }              // &lt;div&gt;Hello&lt;/div&gt;
+{ div: { class: 'box' } }     // &lt;div class="box"&gt;&lt;/div&gt;
+{ br: true }                   // &lt;br&gt;
+{ input: { type: 'text' } }   // &lt;input type="text"&gt;
+{ div: 42 }                   // &lt;div&gt;42&lt;/div&gt;
+
+// Custom elements / web components work too
+{ 'my-widget': { class: 'fancy', text: $.data } }  // &lt;my-widget class="fancy"&gt;...&lt;/my-widget&gt;
+{ 'sl-button': { variant: 'primary', text: 'Click' } }  // &lt;sl-button variant="primary"&gt;Click&lt;/sl-button&gt;</code></pre><div class="note">Any lowercase tag name is rendered with document.createElement — standard HTML, SVG, and custom elements all work. Uppercase tags are treated as BlokJS components.</div></div><div id="text-bind" class="section"><h2>Text</h2><div class="table-wrap"><table><thead><tr><th>Key</th><th>Description</th></tr></thead><tbody><tr><td><code class="ic">text</code></td><td>Text content. Static string or reactive ref.</td></tr></tbody></table></div><pre class="code-block"><code class="language-javascript">// Static text
+{ p: { text: 'Hello World' } }
+
+// Reactive text
+{ h1: { text: $.title } }
+
+// Mixed: static text + reactive child
+{ p: { text: 'Count: ', children: [
+  { span: { text: $.count } }
+] } }
+
+// Or use a computed for cleaner interpolation
+// computed: { countLabel() { return `Count: ${this.count}` } }
+{ p: { text: $.countLabel } }
+
+// Shorthand: ref as the element value
+{ span: $.count }   // equivalent to { span: { text: $.count } }</code></pre></div><div id="html-binding" class="section"><h2>HTML</h2><p><code class="ic">html</code> sets raw HTML on the element using innerHTML.</p><pre class="code-block"><code class="language-javascript">// Static HTML
+{ div: { html: '&lt;b&gt;Bold&lt;/b&gt; and &lt;em&gt;italic&lt;/em&gt;' } }
+
+// Reactive HTML
+{ div: { html: $.richContent } }</code></pre><div class="note">Warning: html is not sanitized. Never use it with untrusted user input - this can lead to XSS vulnerabilities. Only use html with content you control. For user-provided text, use the text binding instead, which is always safe.</div></div><div id="children" class="section"><h2>Children</h2><p>An array of child template objects, rendered in order.</p><pre class="code-block"><code class="language-javascript">{ ul: { children: [
+  { li: 'First' },
+  { li: 'Second' },
+  { li: { text: $.third } },
+] } }
+
+// Strings in children become text nodes
+{ p: { children: ['Hello ', { b: 'World' }] } }</code></pre></div><div id="classes" class="section"><h2>Classes</h2><p>Multiple ways to set CSS classes:</p><pre class="code-block"><code class="language-javascript">// String
+{ div: { class: 'box large' } }
+
+// Reactive string
+{ div: { class: $.className } }
+
+// Conditional object — keys are class names, values are booleans or refs
+{ li: { class: { active: $.isActive, done: $.todo.done } } }
+
+// Array (mixed string + conditional)
+{ div: { class: ['base', { highlight: $.isNew }] } }
+
+// Kebab-case class names — quote the key
+{ div: { class: { 'is-active': $.isActive, 'has-error': $.hasError } } }
+
+// Function form - same $ as function-form when, loop variables included
+{ each: $.groups, as: 'grp', key: 'name', children: [
+  { button: { class: { tab: true, active: ($) =&gt; $.grp.name === $.activeGroup }, text: $.grp.name } }
+] }</code></pre></div><div id="styles" class="section"><h2>Styles</h2><p>Inline styles as a string or an object. Object keys use camelCase, converted to kebab-case.</p><pre class="code-block"><code class="language-javascript">// String
+{ div: { style: 'color: red; font-size: 14px' } }
+
+// Object
+{ div: { style: { color: 'red', fontSize: '14px' } } }
+
+// Reactive values
+{ div: { style: { backgroundColor: $.bgColor, opacity: $.fade } } }</code></pre></div><div id="attributes" class="section"><h2>Attributes</h2><p>Any key that is not a reserved name or event name is treated as an HTML attribute.</p><pre class="code-block"><code class="language-javascript">// Static
+{ input: { type: 'text', placeholder: 'Enter name' } }
+{ img: { src: '/logo.png', alt: 'Logo' } }
+{ a: { href: '/about', target: '_blank', text: 'About' } }
+
+// Reactive — pass a ref directly for single attributes
+{ input: { disabled: $.not.enabled } }  // reactive boolean
+
+// bind groups reactive attributes (optional — direct refs work too)
+{ img: { bind: { src: $.imageUrl, alt: $.title } } }
+
+// Equivalent — refs work directly as attribute values
+{ img: { src: $.imageUrl, alt: $.title } }
+
+// Boolean attributes
+{ button: { disabled: true } }    // &lt;button disabled&gt;
+{ button: { disabled: false } }   // &lt;button&gt; (removed)</code></pre><div class="note">Attributes are applied before special keys. This ensures type is set before model on inputs.</div><div class="note">URL attributes (href, src, action, formaction) are automatically sanitized — only http(s):, mailto:, tel:, relative paths, and fragment (#) URLs are allowed. javascript: and other dangerous protocols are blocked.</div><h3 id="props">Properties</h3><p>Attributes are always strings. <code class="ic">props</code> assigns JavaScript properties instead: arrays and objects for web components, or properties that have no attribute, such as <code class="ic">indeterminate</code>.</p><pre class="code-block"><code class="language-javascript">// Static values or refs - a ref re-assigns the property when its value changes
+{ 'data-grid': { props: { rows: $.rows, columns: $.columns } } }
+{ input: { type: 'checkbox', props: { indeterminate: $.partial } } }
+
+// Functions are assigned as-is, e.g. callbacks the element calls
+{ 'data-grid': { props: { renderCell: formatCell } } }</code></pre><div class="note">A ref re-assigns the property only when the value itself changes. To let the element see a new item, replace the array (this.items = [...this.items, item]) instead of pushing into it.</div></div><div id="model" class="section"><h2>Model</h2><p>Two-way binding between a form element and a reactive ref.</p><pre class="code-block"><code class="language-javascript">// Text input — binds .value, listens to 'input' event
+{ input: { type: 'text', model: $.name } }
+
+// Checkbox — binds .checked, listens to 'change' event
+{ input: { type: 'checkbox', model: $.agreed } }
+
+// Select — binds .value, listens to 'change' event
+{ select: { model: $.category, children: [
+  { option: { value: '', text: 'All' } },
+  { option: { value: 'books', text: 'Books' } },
+  { option: { value: 'music', text: 'Music' } },
+] } }
+
+// Textarea — binds .value, listens to 'input' event
+{ textarea: { model: $.content } }
+
+// Custom elements - bind .value, listen to 'input' event
+{ 'wa-input': { model: $.email } }
+
+// Other shapes (e.g. a switch with .checked): props + on
+{ 'wa-switch': { props: { checked: $.dark }, on: { change: 'toggleDark' } } }</code></pre></div><div id="events" class="section"><h2>Events</h2><p>Events are specified as string values — either a method name or an assignment expression.</p><pre class="code-block"><code class="language-javascript">// Call a method (receives the native Event as argument)
+{ button: { click: 'handleClick', text: 'Click' } }
+
+// Same, as a method ref
+{ button: { click: $.handleClick, text: 'Click' } }
+
+// Inline state assignment
+{ button: { click: 'editing = true', text: 'Edit' } }
+{ button: { click: 'count = 0', text: 'Reset' } }
+
+// Form submit (e.preventDefault() is called automatically)
+{ form: { submit: 'save', children: [...] } }
+
+// Pass arguments to methods
+{ button: { click: 'remove(item)', text: 'x' } }
+{ button: { click: 'select(item.id)', text: 'Go' } }
+{ button: { click: 'update(item, true)', text: 'Save' } }
+
+// Multiple events via 'on' object
+{ input: { on: { focus: 'onFocus', blur: 'onBlur' } } }</code></pre><p>A method ref (<code class="ic">$.handleClick</code>) is the same as the string <code class="ic">'handleClick'</code> and works everywhere a handler string does. Refs cannot be called, so <code class="ic">$.remove(item)</code> does not work: use the string form <code class="ic">'remove(item)'</code> for arguments and assignments.</p><h3 id="event-names">Recognized Event Names</h3><p>These events can be used as direct keys on element options:</p><pre class="code-block"><code class="language-javascript">click, dblclick, mousedown, mouseup, mousemove,
+mouseenter, mouseleave, keydown, keyup, keypress,
+input, change, submit, focus, blur, scroll, resize,
+touchstart, touchend, touchmove,
+dragstart, dragend, dragover, dragleave, drop</code></pre><p>For other events, including custom events from web components, use the <code class="ic">on</code> object.</p><pre class="code-block"><code class="language-javascript">{ 'wa-dialog': { on: { 'wa-after-hide': $.onClose } } }</code></pre><h3 id="argument-passing">Argument Passing</h3><p>Pass arguments to method calls using function-call syntax. Arguments are resolved at event time.</p><pre class="code-block"><code class="language-javascript">// Iteration variable
+{ each: $.items, as: 'item', key: 'id', children: [
+  { button: { click: 'remove(item)', text: 'x' } }
+]}
+
+// Nested path
+{ button: { click: 'select(item.id)' } }
+
+// Literals: strings, numbers, booleans, null
+{ button: { click: "log('clicked')" } }
+{ button: { click: 'setPage(1)' } }
+{ button: { click: 'toggle(true)' } }
+
+// Multiple arguments
+{ button: { click: 'update(item, true, 42)' } }</code></pre><div class="note">When arguments are specified, only those arguments are passed. When no arguments are given (e.g. click: 'save'), the native Event object is passed instead.</div><h3 id="assignment-values">Assignment Expressions</h3><p>Supported value types in assignment expressions:</p><pre class="code-block"><code class="language-javascript">'count = 0'        // number
+'active = true'    // boolean
+'active = false'   // boolean
+'name = null'      // null
+"name = ''"        // empty string
+"name = 'hello'"   // string</code></pre><div class="note">The left side must be a single top-level state name (no dots). Assignments write to local state only — you cannot assign to store or nested properties this way. For those, use a method.</div><h3 id="event-modifiers">Event Modifiers</h3><p>Use object syntax or dot-separated modifiers to automatically call preventDefault() or stopPropagation():</p><pre class="code-block"><code class="language-javascript">// Object syntax (recommended)
+{ a: { click: { handler: 'navigate', prevent: true }, text: 'Go' } }
+{ div: { click: { handler: 'handler', stop: true } } }
+{ div: { click: { handler: 'handler', prevent: true, stop: true } } }
+{ div: { click: { stop: true } } }  // modifier-only, no handler
+
+// String syntax (also supported)
+{ a: { 'click.prevent': 'navigate', text: 'Go' } }
+{ div: { 'click.stop': 'handler' } }
+{ div: { 'click.prevent.stop': 'handler' } }
+
+// Works with the on object too
+{ input: { on: { 'focus.stop': 'onFocus' } } }</code></pre><div class="table-wrap"><table><thead><tr><th>Modifier</th><th>Effect</th></tr></thead><tbody><tr><td><code class="ic">prevent</code></td><td>Calls e.preventDefault() before the handler runs</td></tr><tr><td><code class="ic">stop</code></td><td>Calls e.stopPropagation() before the handler runs</td></tr></tbody></table></div><div class="note">submit events always call e.preventDefault() automatically, even without the prevent modifier.</div><div class="note">link: true strips the leading # from href (if present) before navigating.</div></div><div id="conditionals" class="section"><h2>Conditionals</h2><h3 id="when-block">Standalone when</h3><p>A <code class="ic">when</code> block renders its children only when the condition is truthy. Children are created and destroyed reactively.</p><pre class="code-block"><code class="language-javascript">{ when: $.isLoggedIn, children: [
+  { p: 'Welcome back!' },
+  { button: { click: 'logout', text: 'Log out' } },
+] }
+
+{ when: $.not.isLoggedIn, children: [
+  { a: { href: '/login', text: 'Please log in' } },
+] }</code></pre><h3 id="when-element">Conditional Element</h3><p>Add <code class="ic">when</code> inside an element's options to conditionally render that element:</p><pre class="code-block"><code class="language-javascript">{ div: { when: $.showDetails, class: 'details', children: [
+  { p: { text: $.description } },
+] } }</code></pre><p>The element and all its children are created/destroyed based on the condition.</p><h3 id="when-fn">Function Form</h3><p>For expressions with operators (<code class="ic">!</code>, <code class="ic">&amp;&amp;</code>, <code class="ic">&gt;</code>, etc.), pass a function to <code class="ic">when</code>. The function receives the reactive component context as <code class="ic">$</code>, with loop variables from enclosing <code class="ic">each</code> blocks on top. Dependency tracking is automatic:</p><pre class="code-block"><code class="language-javascript">{ when: ($) =&gt; !$.loading, children: [
+  { p: 'Content loaded!' }
+] }
+
+{ when: ($) =&gt; $.count &gt; 10, children: [
+  { p: 'Many items!' }
+] }
+
+{ when: ($) =&gt; $.isLoaded &amp;&amp; $.items.length, children: [
+  { p: 'Has items' }
+] }
+
+// Works with stores too
+{ when: ($) =&gt; $.store.auth.isLoggedIn || $.isGuest, children: [
+  { p: 'Has access' }
+] }
+
+// Element-level
+{ div: { when: ($) =&gt; $.count &gt; 5, text: 'High count' } }
+
+// Inside each - loop variables are available on $
+{ each: $.items, as: 'item', key: 'id', children: [
+  { when: ($) =&gt; $.item.score &gt; $.threshold, children: [
+    { p: { text: $.item.name } }
+  ] }
+] }</code></pre><h3 id="when-computed">Ref Limitations</h3><p>When using the ref form (without a function), <code class="ic">when</code> only accepts <code class="ic">$</code> paths - not JavaScript expressions. Operators evaluate against the proxy object, not the value:</p><pre class="code-block"><code class="language-javascript">// These do NOT work with refs:
+{ when: !$.loading, ... }           // always false (! on a proxy object)
+{ when: $.count &gt; 10, ... }         // compares proxy &gt; 10, not the value
+{ span: { text: $.on ? 'on' : 'off' } }  // always 'on' (a proxy object is truthy)
+
+// Use function form instead:
+{ when: ($) =&gt; !$.loading, ... }
+{ when: ($) =&gt; $.count &gt; 10, ... }
+
+// Or use $.not for simple negation:
+{ when: $.not.loading, ... }
+
+// Ref form works for simple truthy/falsy checks:
+{ when: $.items.length, ... }       // resolves to the array's length
+
+// For very complex conditions, a computed is still a good option:
+computed: {
+  hasLongNames() {
+    return this.users.filter(a =&gt; a.name.length &gt; 10).length &gt; 10
+  }
+}
+{ when: $.hasLongNames, children: [...] }</code></pre></div><div id="loops" class="section"><h2>Loops</h2><p><code class="ic">each</code> iterates over a reactive array. Use <code class="ic">as</code> to name the iteration variable (default: <code class="ic">'item'</code>). Use <code class="ic">key</code> for stable identity.</p><pre class="code-block"><code class="language-javascript">{ each: $.todos, as: 'todo', key: 'id', children: [
+  { li: { children: [
+    { input: { type: 'checkbox', model: $.todo.done } },
+    { span: { text: $.todo.text } },
+  ] } }
+] }
+
+// Without key (uses index)
+{ each: $.items, children: [
+  { li: { text: $.item } }
+] }
+
+// Nested iteration
+{ each: $.groups, as: 'group', children: [
+  { div: { children: [
+    { h3: { text: $.group.name } },
+    { each: $.group.items, as: 'item', children: [
+      { span: { text: $.item } },
+    ] },
+  ] } }
+] }</code></pre><div class="note">When the array changes, BlokJS compares length and keys in order. If both match, the DOM is kept as-is (item properties are still reactive within existing iterations). Otherwise, all items are torn down and re-rendered.</div></div><div id="components" class="section"><h2>Components</h2><p>Use registered component names (uppercase) as tag keys. Pass props and listen to events.</p><pre class="code-block"><code class="language-javascript">// Pass props (static values or reactive refs)
+{ UserCard: { name: $.user.name, email: $.user.email } }
+
+// Listen to child events with on_ prefix
+{ TodoItem: { todo: $.item, on_remove: 'handleRemove' } }
+{ TodoItem: { todo: $.item, on_remove: $.handleRemove } }  // method ref
+
+// Parent method 'handleRemove' is called when child does this.emit('remove', payload)</code></pre><h3 id="component-events">Parent-Child Events</h3><p>Prefix event names with <code class="ic">on_</code> when using a component. The child emits with <code class="ic">this.emit('eventName', payload)</code> and the parent's method is called with the payload.</p><pre class="code-block"><code class="language-javascript">// Child component
+blok.component('ColorPicker', {
+  methods: {
+    select(e) {
+      this.emit('pick', e.target.value)
+    }
+  },
+  view: ($) =&gt; ({ input: { type: 'color', change: 'select' } })
+})
+
+// Parent
+{ ColorPicker: { on_pick: 'handleColor' } }
+
+// Parent method
+methods: {
+  handleColor(color) {
+    this.store.theme = color
+  }
+}</code></pre></div><div id="slots" class="section"><h2>Slots</h2><p>Components can render children passed by their parent using the slot mechanism.</p><pre class="code-block"><code class="language-javascript">// Define a component with a slot
+blok.component('Card', {
+  props: ['title'],
+  view: ($) =&gt; ({
+    div: { class: 'card', children: [
+      { h3: { text: $.title } },
+      { div: { class: 'card-body', children: { slot: true } } },
+    ] }
+  })
+})
+
+// Use with children (slotted content)
+{ Card: { title: 'My Card', children: [
+  { p: 'This content goes into the slot.' },
+  { button: { text: 'Action' } },
+] } }</code></pre><p>Use <code class="ic">children: { slot: true }</code> to mark where slot content is inserted. This is the only case where <code class="ic">children</code> is not an array.</p><div class="note">Slot content is defined in the parent's view but resolved in the child component's scope. This means $ refs like $.parentState will look up parentState on the child, not the parent. Pass data explicitly via props or the store instead.</div></div><div id="refs" class="section"><h2>Refs</h2><p>Store a reference to a DOM element for direct access in methods.</p><pre class="code-block"><code class="language-javascript">view: ($) =&gt; ({
+  div: { children: [
+    { input: { ref: 'nameInput', type: 'text', model: $.name } },
+    { button: { click: 'focusInput', text: 'Focus' } },
+  ] }
+})
+
+// Access the element
+methods: {
+  focusInput() {
+    this.refs.nameInput.focus()
+  }
+}</code></pre></div><div id="router" class="section"><h2>Router</h2><p>Client-side routing with path matching, params, guards, and programmatic navigation.</p><h3 id="route-config">Configuration</h3><pre class="code-block"><code class="language-javascript">blok.mount('#app', {
+  routes: [
+    { path: '/', component: 'Home' },
+    { path: '/users', component: 'UserList' },
+    { path: '/users/:id', component: 'UserDetail' },
+    { path: '*', component: 'NotFound' },
+  ],
+  view: ($) =&gt; ({
+    div: { children: [
+      { div: { route: true } },
+    ] }
+  })
+})</code></pre><div class="table-wrap"><table><thead><tr><th>RouteConfig</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td><code class="ic">path</code></td><td><code class="ic">string</code></td><td>URL pattern. Use :name for params. Use * for catch-all.</td></tr><tr><td><code class="ic">component</code></td><td><code class="ic">string</code></td><td>Name of a registered component to render.</td></tr><tr><td><code class="ic">guard</code></td><td><code class="ic">string</code></td><td>Name of a guard function to check before entering.</td></tr></tbody></table></div><h3 id="route-outlet">Route Outlet</h3><p>Set <code class="ic">route: true</code> on any element to make it a route outlet - a container that renders the component matched by the current route.</p><pre class="code-block"><code class="language-javascript">view: ($) =&gt; ({
+  div: { children: [
+    { nav: { children: [
+      { a: { href: '/', link: true, text: 'Home' } },
+      { a: { href: '/about', link: true, text: 'About' } },
+    ] } },
+    { div: { route: true } },
+  ] }
+})</code></pre><p>When the route changes, the previous component is destroyed and the new one is mounted.</p><h3 id="route-links">Route Links</h3><p>Add <code class="ic">link: true</code> to an <code class="ic">&lt;a&gt;</code> element to enable client-side navigation. Click is intercepted, <code class="ic">e.preventDefault()</code> is called, and the router navigates to the href. Only works on <code class="ic">&lt;a&gt;</code> elements - silently ignored on other tags.</p><pre class="code-block"><code class="language-javascript">{ a: { href: '/users/42', link: true, text: 'View User' } }
+
+// Dynamic href
+{ a: { bind: { href: $.profileUrl }, link: true, text: 'Profile' } }</code></pre><h3 id="route-params">Params &amp; Query</h3><p>Route parameters are extracted from the URL and available on this.route.</p><pre class="code-block"><code class="language-javascript">// Route: { path: '/users/:id', component: 'UserDetail' }
+// URL: /users/42
+
+// In the component:
+computed: {
+  user() {
+    const id = Number(this.route.params.id)  // '42'
+    return this.store.users.find(u =&gt; u.id === id)
+  }
+}
+
+// Query string: /search?q=hello
+// this.route.query.q === 'hello'</code></pre><p><code class="ic">this.route</code> is reactive - computed values and bindings that read it update when the route changes.</p><h3 id="route-guards">Guards</h3><p>Guard functions run before a route is entered. Return true to allow, false to block, or a string to redirect.</p><pre class="code-block"><code class="language-javascript">blok.mount('#app', {
+  routes: [
+    { path: '/admin', component: 'Admin', guard: 'requireAuth' },
+    { path: '/login', component: 'Login' },
+  ],
+  guards: {
+    requireAuth(to, from) {
+      if (!this.store.auth.user) return '/login'
+      return true
+    }
+  },
+  // ...
+})</code></pre><p>Guards have the same <code class="ic">this</code> context as the root component. Both <code class="ic">to</code> and <code class="ic">from</code> are <code class="ic">{ path, params, query }</code> objects matching the shape of <code class="ic">this.route</code>.</p><h3 id="route-modes">Modes</h3><div class="table-wrap"><table><thead><tr><th>Mode</th><th>Behavior</th></tr></thead><tbody><tr><td><code class="ic">'hash'</code></td><td>Uses URL hash (#/path). Works everywhere including file:// URLs.</td></tr><tr><td><code class="ic">'history'</code></td><td>Uses History API (pushState). Requires server configuration.</td></tr><tr><td><code class="ic">'auto'</code></td><td>Uses hash for file:// protocol, history otherwise. This is the default.</td></tr></tbody></table></div><div class="note">The initial route is resolved when mount() runs, before the first render, so the first render already shows the matched route. Guards for it run before anything renders: this.el and this.refs are not set yet. A watcher on route.path does not fire for the initial route, so load data for it in mount().</div><h3 id="programmatic-nav">Programmatic Navigation</h3><pre class="code-block"><code class="language-javascript">// Navigate to a path
+this.navigate('/users/42')
+
+// Go back/forward in history
+this.navigate(-1)   // history.go(-1)
+this.navigate(1)    // history.go(1)</code></pre></div><div id="reactivity" class="section"><h2>Reactivity</h2><p>BlokJS uses ES Proxy to track property reads inside effects (bindings, computed, watchers). When a tracked property is written, all dependent effects re-run.</p><pre class="code-block"><code class="language-javascript">// This computed tracks this.items and this.filter
+computed: {
+  filtered() {
+    return this.items.filter(i =&gt; i.name.includes(this.filter))
+  }
+}
+// When either items or filter changes, filtered re-evaluates
+// and any UI bound to $.filtered updates</code></pre><p>Nested objects are lazily wrapped — accessing a.b.c creates proxies as needed.</p></div><div id="array-mutations" class="section"><h2>Array Mutations</h2><p>These array methods are intercepted and trigger reactive updates:</p><pre class="code-block"><code class="language-javascript">push, pop, shift, unshift, splice, sort, reverse</code></pre><pre class="code-block"><code class="language-javascript">this.todos.push({ text: 'New', done: false })  // triggers update
+this.todos.splice(2, 1)                        // triggers update
+this.todos.sort((a, b) =&gt; a.text.localeCompare(b.text))  // triggers update
+
+// Direct assignment also works
+this.items = this.items.filter(i =&gt; !i.done)   // triggers update</code></pre></div><div id="batching" class="section"><h2>Batching</h2><p>Multiple synchronous state changes are batched into a single DOM update via the microtask queue.</p><pre class="code-block"><code class="language-javascript">methods: {
+  reset() {
+    this.name = ''
+    this.count = 0
+    this.items = []
+    // All three changes result in ONE DOM update
+  }
+}</code></pre><p>Effects are collected into a Set and flushed in a single microtask, preventing redundant renders.</p></div><div id="full-example" class="section"><h2>Full Example: Task Board</h2><p>The Task Board example is a single HTML file that exercises every BlokJS feature — stores, components, routing, guards, slots, async methods, and more. Use it as a reference for how everything fits together.</p><p>→ <a href="../examples/task-board.html">Open the Task Board example</a></p><h3 id="full-example-arch">Architecture</h3><pre class="code-block"><code class="language-javascript">// Stores
+blok.store('auth', { state, computed, methods: { async login(), logout() } })
+blok.store('board', { state, computed, methods: { async loadTasks(), addTask(), removeTask(), moveTask(), updateTask() } })
+
+// Components (7)
+Login        — form with model, ref for focus, async submit, navigate()
+Board        — search with watch, each + nested loop, modal (when), store async, drag-and-drop
+TaskColumn   — props, computed, style binding, re-emits child events, empty state (when), drag-and-drop zone
+TaskCard     — class array (string + ref + conditional), bind: { href }, link, emits, draggable
+CardWrapper  — props, style binding, { slot: true }
+TaskDetail   — route :id param, html binding, model on select/textarea/checkbox, editing toggle
+NotFound     — navigate(-1) back
+
+// Routes
+/login            — Login
+/board            — Board (guarded)
+/task/:id         — TaskDetail (guarded)
+*                 — NotFound</code></pre><h3 id="full-example-features">Feature Coverage</h3><div class="table-wrap"><table><thead><tr><th>Feature</th><th>Where</th></tr></thead><tbody><tr><td><code class="ic">blok.mount / component / store</code></td><td>Root + 7 components + 2 stores</td></tr><tr><td><code class="ic">props</code></td><td>TaskColumn, TaskCard, CardWrapper</td></tr><tr><td><code class="ic">state</code></td><td>Login, Board, TaskDetail</td></tr><tr><td><code class="ic">computed</code></td><td>TaskCard, TaskColumn, TaskDetail, both stores</td></tr><tr><td><code class="ic">watch</code></td><td>Board (search → store sync)</td></tr><tr><td><code class="ic">methods (sync + async)</code></td><td>All components, both stores</td></tr><tr><td><code class="ic">mount / unmount</code></td><td>Root (nav redirect + cleanup), Login (focus), Board (load + cleanup)</td></tr><tr><td><code class="ic">text / html</code></td><td>Everywhere / TaskDetail description</td></tr><tr><td><code class="ic">class (string, object, array)</code></td><td>TaskCard, TaskColumn</td></tr><tr><td><code class="ic">style (object)</code></td><td>TaskColumn header, CardWrapper</td></tr><tr><td><code class="ic">model (input, select, textarea, checkbox)</code></td><td>Login, Board, TaskDetail</td></tr><tr><td><code class="ic">events (click, submit, drag*)</code></td><td>Forms, buttons, TaskCard drag, TaskColumn drop zone</td></tr><tr><td><code class="ic">event modifiers (stop, prevent)</code></td><td>Board modal (stop), TaskColumn drag (prevent), TaskDetail (prevent)</td></tr><tr><td><code class="ic">when + $.not + function form</code></td><td>Loading, modal, auth nav, empty states</td></tr><tr><td><code class="ic">each + key + nested</code></td><td>Columns → Tasks</td></tr><tr><td><code class="ic">components + on_ events</code></td><td>TaskCard → TaskColumn → Board</td></tr><tr><td><code class="ic">slots</code></td><td>CardWrapper wraps heading in Board</td></tr><tr><td><code class="ic">ref (DOM)</code></td><td>Login input focus</td></tr><tr><td><code class="ic">bind: {}</code></td><td>TaskCard dynamic href</td></tr><tr><td><code class="ic">routing + :params + guards</code></td><td>4 routes, requireAuth guard, /task/:id</td></tr><tr><td><code class="ic">link: true + route: true</code></td><td>Nav links, route outlet</td></tr><tr><td><code class="ic">multiple stores</code></td><td>auth + board</td></tr><tr><td><code class="ic">async loading/error</code></td><td>Login submit, Board loadTasks</td></tr><tr><td><code class="ic">programmatic navigation</code></td><td>Login→/board, TaskDetail back, logout→/login</td></tr><tr><td><code class="ic">assignment expressions</code></td><td>showEdit = true, showModal = false</td></tr><tr><td><code class="ic">negated refs ($.not)</code></td><td>Auth nav, loading states</td></tr></tbody></table></div></div><div id="validate-api" class="section"><h2>Validation API</h2><p>BlokJS includes a validate object with pure functions that check definitions and return an array of warning strings. These run automatically via console.warn in dev builds, but the validate API lets you capture warnings programmatically.</p><div class="note">Dev builds (blokjs.js, blokjs.esm.js) run every check automatically. Minified builds (blokjs.min.js, blokjs.esm.min.js) run only the unknown-key check on component, mount and store definitions, so a misnamed hook such as init instead of mount still warns in production. The blok.validate.* functions are available in every build.</div><h3 id="validate-component">validate.component(name, def)</h3><p>Validates a component definition. Returns warnings for missing view, unknown keys, state conflicts, and type errors.</p><pre class="code-block"><code class="language-javascript">const warnings = blok.validate.component('todo-item', {
+  props: ['label'],
+  // missing view
+})
+// ['Component "todo-item" is missing the required "view" function.']</code></pre><h3 id="validate-mount">validate.mount(opts)</h3><p>Validates mount options. Same checks as component, plus router-specific validation.</p><pre class="code-block"><code class="language-javascript">const warnings = blok.validate.mount({
+  state: { count: 0 },
+  // missing view
+})
+// ['Mount options missing the required "view" function.']
+
+// Names from other frameworks get a suggestion
+blok.validate.mount({ init() {}, view: ($) =&gt; ({ div: 'hi' }) })
+// ['Unknown mount option "init" - did you mean "mount"?']</code></pre><h3 id="validate-store">validate.store(name, def)</h3><p>Validates a store definition. Checks for unknown keys.</p><pre class="code-block"><code class="language-javascript">const warnings = blok.validate.store('auth', {
+  state: { user: null },
+  foo: 1,
+})
+// ['Unknown property "foo" in store "auth". Valid: state, computed, methods']</code></pre><h3 id="validate-template">validate.template(tag, opts, methods)</h3><p>Validates a view template node. Catches typos in template keys and references to undefined event handler methods. Pass the methods object (or undefined) as the third argument.</p><pre class="code-block"><code class="language-javascript">const warnings = blok.validate.template('button', {
+  click: 'save',
+  clss: 'btn',
+}, { save() {} })
+// ['&lt;button&gt; has "clss" - did you mean "class"?']</code></pre></div><div id="validate-checks" class="section"><h2>What Gets Caught</h2><p>The validator catches the following issues:</p><ul style="font-size:14px; line-height:1.8; margin:10px 0 16px 20px; color:#333"><li>Missing or non-function view</li><li>Unknown definition keys, with suggestions for typos and names from other frameworks (init, mounted, created, setup, destroyed, data, render, template...). Runs in minified builds too.</li><li>State keys conflicting with reserved names (store, route, refs, el, etc.)</li><li>Duplicate keys across state, computed, and methods</li><li>Non-function mount, unmount, methods, computed, or watch entries</li><li>Event handlers referencing undefined methods</li><li>Template key typos (Levenshtein-based suggestions)</li><li>Invalid router mode values</li></ul><div class="note">All validate functions are pure - they return string arrays and produce no side effects. The runtime validators (called automatically by blok.component, blok.mount, blok.store) use console.warn internally.</div></div></main></div></div>
+  <script src="https://cdn.jsdelivr.net/npm/@maleta/blokjs@0.5.0/dist/blokjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-markup.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-javascript.min.js"></script>
@@ -127,7 +846,7 @@
           { nav: { class: 'sidebar', children: [
             { div: { children: [
               { span: { class: 'logo', text: 'BlokJS' } },
-              { span: { class: 'version', text: 'v0.1.0' } },
+              { span: { class: 'version', text: 'v0.5.0' } },
             ] } },
 
             grp('Getting Started',
