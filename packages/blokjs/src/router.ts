@@ -62,6 +62,15 @@ export function matchRoute(
   return null
 }
 
+function applyRoute(app: App, parsed: ParsedRoute[], fullPath: string): void {
+  const { path, search } = splitFullPath(fullPath)
+  const match = matchRoute(parsed, path)
+
+  app.routeProxy.path = path
+  app.routeProxy.params = match?.params ?? {}
+  app.routeProxy.query = parseQuery(search)
+}
+
 export function createRouter(
   app: App,
   routes: RouteConfig[],
@@ -85,12 +94,7 @@ export function createRouter(
   }
 
   function updateCurrent(fullPath: string): void {
-    const { path, search } = splitFullPath(fullPath)
-    const match = matchRoute(parsed, path)
-
-    app.routeProxy.path = path
-    app.routeProxy.params = match?.params ?? {}
-    app.routeProxy.query = parseQuery(search)
+    applyRoute(app, parsed, fullPath)
   }
 
   function runGuard(
@@ -224,4 +228,23 @@ export function createRouter(
   checkGuardsAndUpdate(getInitialPath())
 
   return router
+}
+
+/** Router fixed at `url` for server rendering: no history, no listeners, guards never run. */
+export function createServerRouter(
+  app: App,
+  routes: RouteConfig[],
+  guards: Record<string, (to: any, from: any) => string | boolean>,
+  url: string,
+): Router {
+  const parsed = parseRoutes(routes)
+  applyRoute(app, parsed, url)
+  return {
+    current: app.routeProxy,
+    routes,
+    guards,
+    match: (path: string) => matchRoute(parsed, path),
+    navigate() {},
+    destroy() {},
+  }
 }

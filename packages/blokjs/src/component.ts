@@ -72,6 +72,7 @@ export interface ComponentInstance {
   parent: ComponentInstance | null
   children: ComponentInstance[]
   eventHandlers: Map<string, (payload: any) => void>
+  mounted: boolean
   destroyed: boolean
   template: any
   _slotChildren?: any[]
@@ -130,6 +131,7 @@ export function createInstance(
     parent,
     children: [],
     eventHandlers: new Map(),
+    mounted: false,
     destroyed: false,
     template: null,
   }

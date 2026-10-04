@@ -17,6 +17,103 @@ export interface RenderCtx {
   iterVars: Map<string, () => any>
 }
 
+export type NodeFactory = Pick<Document, 'createElement' | 'createTextNode' | 'createComment'>
+
+let doc: NodeFactory | null = null
+
+/** Route node creation to `d` instead of the global document; `null` restores the global. */
+export function setRenderDocument(d: NodeFactory | null): void {
+  doc = d
+}
+
+// Set only during the first render of a hydrating mount: factories claim existing nodes in document order
+interface Cursor { parent: Node; next: Node | null }
+let hyd: Cursor | null = null
+const MISMATCH = {}
+const BLANK = /^[ \t\n\r\f]*$/
+
+function mismatch(expected: string, found: Node | null): never {
+  if (__DEV__) {
+    const desc = !found ? 'nothing'
+      : found.nodeType === 1 ? `<${(found as Element).localName}>`
+      : found.nodeType === 8 ? `<!--${(found as Comment).data}-->`
+      : `text "${(found.textContent || '').slice(0, 30)}"`
+    console.warn(`[blok] Hydration mismatch: expected ${expected}, found ${desc}. Rendering fresh instead.`)
+  }
+  throw MISMATCH
+}
+
+// Whitespace-only text between prerendered nodes (e.g. from reformatting) has no counterpart in the view
+function skipBlank(cur: Cursor): void {
+  while (cur.next && cur.next.nodeType === 3 && BLANK.test((cur.next as Text).data)) {
+    const n = cur.next
+    cur.next = n.nextSibling
+    ;(n as ChildNode).remove()
+  }
+}
+
+function makeElement(tag: string): HTMLElement {
+  if (!hyd) return (doc ?? document).createElement(tag)
+  skipBlank(hyd)
+  const n = hyd.next
+  if (!n || n.nodeType !== 1 || (n as Element).localName !== tag.toLowerCase()) mismatch(`<${tag}>`, n)
+  hyd.next = n.nextSibling
+  return n as HTMLElement
+}
+
+function makeComment(data: string): Comment {
+  if (!hyd) return (doc ?? document).createComment(data)
+  skipBlank(hyd)
+  const n = hyd.next
+  if (!n || n.nodeType !== 8 || (n as Comment).data !== data) mismatch(`<!--${data}-->`, n)
+  hyd.next = n.nextSibling
+  return n as Comment
+}
+
+// Text never mismatches: the parser merges adjacent text nodes, so a missing node is created in place
+function makeText(s?: string): Text {
+  if (!hyd) return (doc ?? document).createTextNode(s ?? '')
+  const n = hyd.next
+  if (n && n.nodeType === 3) {
+    hyd.next = n.nextSibling
+    if (s !== undefined && (n as Text).data !== s) (n as Text).data = s
+    return n as Text
+  }
+  const t = (doc ?? document).createTextNode(s ?? '')
+  hyd.parent.insertBefore(t, n)
+  return t
+}
+
+// Rendered nodes are either fresh or, while hydrating, already in place
+function place(parent: Node, n: Node): void {
+  if (!n.parentNode) parent.appendChild(n)
+}
+
+function setText(el: HTMLElement, s: string): void {
+  if (el.textContent !== s) el.textContent = s
+}
+
+function enterChildren(el: Node): Cursor | null {
+  if (!hyd) return null
+  const outer = hyd
+  hyd = { parent: el, next: el.firstChild }
+  return outer
+}
+
+function leaveChildren(outer: Cursor | null): void {
+  if (!outer) return
+  removeRest(hyd!)
+  hyd = outer
+}
+
+function removeRest(cur: Cursor): void {
+  while (cur.next) {
+    const n = cur.next
+    cur.next = n.nextSibling
+    ;(n as ChildNode).remove()
+  }
+}
+
 const EVENT_NAMES: Record<string, 1> = {
   click: 1, dblclick: 1, mousedown: 1, mouseup: 1, mousemove: 1, mouseenter: 1, mouseleave: 1,
   keydown: 1, keyup: 1, keypress: 1, input: 1, change: 1, submit: 1, focus: 1, blur: 1,
@@ -140,7 +237,7 @@ export function renderNodes(templates: any[], ctx: RenderCtx): Node[] {
 
 export function renderNode(tpl: any, ctx: RenderCtx): Node[] {
   if (tpl == null) return []
-  if (typeof tpl === 'string') return [document.createTextNode(tpl)]
+  if (typeof tpl === 'string') return [makeText(tpl)]
 
   const info = classify(tpl)
   if (info.type === 'when') return renderWhen(tpl, ctx)
@@ -156,21 +253,23 @@ export function renderNode(tpl: any, ctx: RenderCtx): Node[] {
 
 function renderElement(tag: string, value: any, ctx: RenderCtx): Node[] {
   if (typeof value === 'string') {
-    const el = document.createElement(tag)
-    el.textContent = value
+    const el = makeElement(tag)
+    setText(el, value)
     return [el]
   }
   if (isRef(value)) {
-    const el = document.createElement(tag)
+    const el = makeElement(tag)
+    const outer = enterChildren(el)
     setupTextBinding(el, value, ctx)
+    leaveChildren(outer)
     return [el]
   }
   if (value == null || typeof value === 'boolean') {
-    return [document.createElement(tag)]
+    return [makeElement(tag)]
   }
   if (typeof value !== 'object') {
-    const el = document.createElement(tag)
-    el.textContent = String(value)
+    const el = makeElement(tag)
+    setText(el, String(value))
     return [el]
   }
 
@@ -179,14 +278,15 @@ function renderElement(tag: string, value: any, ctx: RenderCtx): Node[] {
   // Conditional element: { div: { when: $.editing, ... } }
   if ('when' in opts) return renderConditionalElement(tag, opts, ctx)
 
-  const el = document.createElement(tag)
+  const el = makeElement(tag)
   applyOptions(el, tag, opts, ctx)
   return [el]
 }
 
 function renderConditionalElement(tag: string, opts: Record<string, any>, ctx: RenderCtx): Node[] {
-  const startMarker = document.createComment(`if:${tag}`)
-  const endMarker = document.createComment(`/if:${tag}`)
+  const startMarker = makeComment(`if:${tag}`)
+  // Created after the first run: a hydrating mount claims nodes in document order
+  let endMarker: Comment | undefined
   const readCond = createReader(opts.when, ctx)
   const restOpts = { ...opts }
   delete restOpts.when
@@ -203,13 +303,14 @@ function renderConditionalElement(tag: string, opts: Record<string, any>, ctx: R
     if (show) {
       childScope = ctx.scope.child()
       const childCtx: RenderCtx = { ...ctx, scope: childScope }
-      currentEl = document.createElement(tag)
+      currentEl = makeElement(tag)
       applyOptions(currentEl, tag, restOpts, childCtx)
-      if (endMarker.parentNode) {
+      if (endMarker?.parentNode) {
         endMarker.parentNode.insertBefore(currentEl, endMarker)
       }
     }
   }, ctx.scope)
+  endMarker = makeComment(`/if:${tag}`)
 
   const result: Node[] = [startMarker]
   if (currentEl) result.push(currentEl)
@@ -218,8 +319,9 @@ function renderConditionalElement(tag: string, opts: Record<string, any>, ctx: R
 }
 
 function renderWhen(tpl: any, ctx: RenderCtx): Node[] {
-  const startMarker = document.createComment('when')
-  const endMarker = document.createComment('/when')
+  const startMarker = makeComment('when')
+  // Created after the first run, which must not clean up: while hydrating, the following siblings are live content
+  let endMarker: Comment | undefined
   const readCond = createReader(tpl.when, ctx)
   const childTemplates: any[] = tpl.children || []
 
@@ -232,15 +334,17 @@ function renderWhen(tpl: any, ctx: RenderCtx): Node[] {
     if (childScope) { childScope.dispose(); childScope = null }
     // Marker-based cleanup: removes all nodes between markers including
     // any that nested when/each effects inserted after the initial render
-    while (startMarker.nextSibling && startMarker.nextSibling !== endMarker) {
-      startMarker.nextSibling.remove()
+    if (endMarker) {
+      while (startMarker.nextSibling && startMarker.nextSibling !== endMarker) {
+        startMarker.nextSibling.remove()
+      }
     }
 
     if (show) {
       childScope = ctx.scope.child()
       const childCtx: RenderCtx = { ...ctx, scope: childScope }
       const nodes = renderNodes(childTemplates, childCtx)
-      if (endMarker.parentNode) {
+      if (endMarker?.parentNode) {
         for (const n of nodes) endMarker.parentNode.insertBefore(n, endMarker)
       } else {
         // First synchronous run - markers not in DOM yet; capture for return
@@ -248,6 +352,7 @@ function renderWhen(tpl: any, ctx: RenderCtx): Node[] {
       }
     }
   }, ctx.scope)
+  endMarker = makeComment('/when')
 
   const result: Node[] = [startMarker]
   if (initialNodes) result.push(...initialNodes)
@@ -266,8 +371,9 @@ interface EachEntry {
 }
 
 function renderEach(tpl: any, ctx: RenderCtx): Node[] {
-  const startMarker = document.createComment('each')
-  const endMarker = document.createComment('/each')
+  const startMarker = makeComment('each')
+  // Created after the first run, like the per-entry eiEnd: a hydrating mount claims nodes in document order
+  let endMarker: Comment | undefined
   const arrayRef = tpl.each
   const itemName: string = tpl.as || 'item'
   const keyProp: string | undefined = tpl.key
@@ -276,8 +382,7 @@ function renderEach(tpl: any, ctx: RenderCtx): Node[] {
   let currentEntries: EachEntry[] = []
 
   function renderItem(item: any, index: number): EachEntry {
-    const ei = document.createComment('ei')
-    const eiEnd = document.createComment('/ei')
+    const ei = makeComment('ei')
     const itemScope = ctx.scope.child()
     const itemCtx: RenderCtx = {
       inst: ctx.inst,
@@ -301,6 +406,7 @@ function renderEach(tpl: any, ctx: RenderCtx): Node[] {
       })
 
       const initNodes = renderNodes(childTemplates, itemCtx)
+      const eiEnd = makeComment('/ei')
       const key = item != null ? item[keyProp] : index
 
       return {
@@ -328,6 +434,7 @@ function renderEach(tpl: any, ctx: RenderCtx): Node[] {
     })
 
     const initNodes = renderNodes(childTemplates, itemCtx)
+    const eiEnd = makeComment('/ei')
     return { key: index, ei, eiEnd, initNodes, scope: itemScope, setIndex(i: number) { currentIndex = i } }
   }
 
@@ -373,13 +480,15 @@ function renderEach(tpl: any, ctx: RenderCtx): Node[] {
     if (!keyProp) {
       for (const entry of currentEntries) entry.scope.dispose()
       // Marker-based cleanup: remove everything between each-level markers
-      while (startMarker.nextSibling && startMarker.nextSibling !== endMarker) {
-        startMarker.nextSibling.remove()
+      if (endMarker) {
+        while (startMarker.nextSibling && startMarker.nextSibling !== endMarker) {
+          startMarker.nextSibling.remove()
+        }
       }
       currentEntries = []
       for (let i = 0; i < items.length; i++) {
         const entry = renderItem(items[i], i)
-        if (endMarker.parentNode) insertEntry(entry, endMarker)
+        if (endMarker?.parentNode) insertEntry(entry, endMarker)
         currentEntries.push(entry)
       }
       return
@@ -420,7 +529,7 @@ function renderEach(tpl: any, ctx: RenderCtx): Node[] {
     }
 
     // Only move DOM nodes when order actually changed
-    if (orderChanged && endMarker.parentNode) {
+    if (orderChanged && endMarker?.parentNode) {
       for (const entry of newEntries) {
         if (entry.ei.parentNode) {
           moveEntry(entry, endMarker)
@@ -432,6 +541,7 @@ function renderEach(tpl: any, ctx: RenderCtx): Node[] {
 
     currentEntries = newEntries
   }, ctx.scope)
+  endMarker = makeComment('/each')
 
   const result: Node[] = [startMarker]
   for (const entry of currentEntries) {
@@ -446,7 +556,7 @@ function renderComponent(tag: string, propsObj: Record<string, any>, ctx: Render
   const def = app.registry.get(tag)
   if (!def) {
     console.warn(`[blok] Unknown component: ${tag}`)
-    return [document.createComment(`unknown:${tag}`)]
+    return [makeComment(`unknown:${tag}`)]
   }
 
   const propBindings: Record<string, any> = {}
@@ -498,35 +608,43 @@ function renderComponent(tag: string, propsObj: Record<string, any>, ctx: Render
   inst.template = def.view(createRefForInstance())
 
   const childScope = ctx.scope.child()
+  trackInstance(childScope, inst, ctx.inst)
   const childCtx: RenderCtx = { inst, scope: childScope, iterVars: new Map() }
   const nodes = renderNode(inst.template, childCtx)
+  inst.el = firstElement(nodes)
 
-  for (const n of nodes) {
-    if (n instanceof HTMLElement) { inst.el = n; break }
-  }
-
-  // Setup watchers
   setupWatchers(inst)
-
-  // Lifecycle: mount (deferred)
-  queueMicrotask(() => {
-    if (!inst.destroyed && inst.def.mount) {
-      inst.def.mount.call(inst.context)
-    }
-  })
-
-  // Cleanup on scope dispose
-  childScope.track(() => {
-    inst.destroyed = true
-    inst.scope.dispose()
-    if (inst.def.unmount) {
-      untracked(() => inst.def.unmount!.call(inst.context))
-    }
-    const idx = ctx.inst.children.indexOf(inst)
-    if (idx !== -1) ctx.inst.children.splice(idx, 1)
-  })
+  queueMount(inst)
 
   return nodes
+}
+
+// Registered before rendering so a hydration mismatch thrown mid-subtree still disposes the instance
+function trackInstance(scope: Scope, inst: ComponentInstance, parent: ComponentInstance): void {
+  scope.track(() => {
+    inst.destroyed = true
+    inst.scope.dispose()
+    if (inst.mounted && inst.def.unmount) {
+      untracked(() => inst.def.unmount!.call(inst.context))
+    }
+    const idx = parent.children.indexOf(inst)
+    if (idx !== -1) parent.children.splice(idx, 1)
+  })
+}
+
+function queueMount(inst: ComponentInstance): void {
+  queueMicrotask(() => {
+    if (inst.destroyed) return
+    inst.mounted = true
+    if (inst.def.mount) inst.def.mount.call(inst.context)
+  })
+}
+
+function firstElement(nodes: Node[]): HTMLElement | null {
+  for (const n of nodes) {
+    if (n.nodeType === 1) return n as HTMLElement
+  }
+  return null
 }
 
 const SPECIAL: Record<string, 1> = {
@@ -536,6 +654,9 @@ const SPECIAL: Record<string, 1> = {
 
 function applyOptions(el: HTMLElement, tag: string, opts: Record<string, any>, ctx: RenderCtx): void {
   if (__DEV__) validateTemplate(tag, opts, ctx.inst.def.methods)
+  // Class forms only add, so classes the server rendered for a different state would survive
+  if (hyd && 'class' in opts) el.removeAttribute('class')
+  const outer = enterChildren(el)
   // Pass 1: HTML attributes first (so `type` is set before `model`)
   for (const [key, val] of Object.entries(opts)) {
     if (key === 'bind' && typeof val === 'object' && val != null) {
@@ -553,7 +674,7 @@ function applyOptions(el: HTMLElement, tag: string, opts: Record<string, any>, c
       if (isRef(val)) {
         setupTextBinding(el, val, ctx)
       } else if (val != null) {
-        el.append(document.createTextNode(String(val)))
+        place(el, makeText(String(val)))
       }
       continue
     }
@@ -564,16 +685,17 @@ function applyOptions(el: HTMLElement, tag: string, opts: Record<string, any>, c
         if (__DEV__ && SUSPICIOUS_HTML.test(val)) {
           console.warn('[blok] html contains potentially unsafe content (scripts or inline handlers). Consider sanitizing before use.')
         }
-        setRawHTML(el, val)
+        writeHTML(el, val)
       } else if (isRef(val)) {
         createEffect(() => {
           const raw = String(resolve(val, ctx) ?? '')
           if (__DEV__ && SUSPICIOUS_HTML.test(raw)) {
             console.warn('[blok] html contains potentially unsafe content (scripts or inline handlers). Consider sanitizing before use.')
           }
-          setRawHTML(el, raw)
+          writeHTML(el, raw)
         }, ctx.scope)
       }
+      if (hyd) hyd.next = null
       continue
     }
     if (key === 'children') {
@@ -581,11 +703,11 @@ function applyOptions(el: HTMLElement, tag: string, opts: Record<string, any>, c
         const slotChildren: any[] = ctx.inst._slotChildren || []
         if (slotChildren.length > 0) {
           const nodes = renderNodes(slotChildren, ctx)
-          for (const n of nodes) el.appendChild(n)
+          for (const n of nodes) place(el, n)
         }
       } else if (Array.isArray(val)) {
         const nodes = renderNodes(val, ctx)
-        for (const n of nodes) el.appendChild(n)
+        for (const n of nodes) place(el, n)
       }
       continue
     }
@@ -612,13 +734,25 @@ function applyOptions(el: HTMLElement, tag: string, opts: Record<string, any>, c
     const baseEvent = key.split('.')[0]
     if (baseEvent in EVENT_NAMES) { attachEvent(el, key, val, ctx); continue }
   }
+  leaveChildren(outer)
+}
+
+// While hydrating, both sides go through the HTML parser before comparing: raw strings rarely match the DOM's serialization
+function writeHTML(el: HTMLElement, raw: string): void {
+  if (hyd) {
+    const t = (doc ?? document).createElement('template')
+    t.innerHTML = raw
+    if (t.innerHTML === el.innerHTML) return
+  }
+  setRawHTML(el, raw)
 }
 
 function setupTextBinding(el: HTMLElement, ref: any, ctx: RenderCtx): void {
-  const textNode = document.createTextNode('')
-  el.appendChild(textNode)
+  const textNode = makeText()
+  place(el, textNode)
   createEffect(() => {
-    textNode.textContent = String(resolve(ref, ctx) ?? '')
+    const s = String(resolve(ref, ctx) ?? '')
+    if (textNode.data !== s) textNode.data = s
   }, ctx.scope)
 }
 
@@ -725,10 +859,14 @@ function setupModel(el: HTMLElement, tag: string, ref: any, ctx: RenderCtx): voi
   if (!isRef(ref)) return
 
   const isCheckbox = tag === 'input' && (el as HTMLInputElement).type === 'checkbox'
+  // Hydrating: input the user changed before the script ran wins over the initial state
+  let adopt = !!hyd && userEdited(el, tag, isCheckbox)
 
   if (isCheckbox) {
     createEffect(() => {
-      (el as HTMLInputElement).checked = !!resolve(ref, ctx)
+      const v = !!resolve(ref, ctx)
+      if (adopt) { adopt = false; resolveWrite(ref, ctx, (el as HTMLInputElement).checked); return }
+      (el as HTMLInputElement).checked = v
     }, ctx.scope)
     el.addEventListener('change', () => {
       resolveWrite(ref, ctx, (el as HTMLInputElement).checked)
@@ -736,6 +874,7 @@ function setupModel(el: HTMLElement, tag: string, ref: any, ctx: RenderCtx): voi
   } else {
     createEffect(() => {
       const v = resolve(ref, ctx)
+      if (adopt) { adopt = false; resolveWrite(ref, ctx, (el as HTMLInputElement).value); return }
       if ((el as HTMLInputElement).value !== String(v ?? '')) {
         (el as HTMLInputElement).value = String(v ?? '')
       }
@@ -745,6 +884,17 @@ function setupModel(el: HTMLElement, tag: string, ref: any, ctx: RenderCtx): voi
       resolveWrite(ref, ctx, (el as HTMLInputElement).value)
     })
   }
+}
+
+function userEdited(el: HTMLElement, tag: string, isCheckbox: boolean): boolean {
+  if (isCheckbox) return (el as HTMLInputElement).checked !== (el as HTMLInputElement).defaultChecked
+  if (tag === 'select') {
+    for (const o of Array.from((el as HTMLSelectElement).options)) {
+      if (o.selected !== o.defaultSelected) return true
+    }
+    return false
+  }
+  return (el as HTMLInputElement).value !== (el as HTMLInputElement).defaultValue
 }
 
 function attachEvent(el: HTMLElement, rawEvent: string, rawHandler: any, ctx: RenderCtx): void {
@@ -887,16 +1037,21 @@ function applyAttribute(el: HTMLElement, key: string, val: any, ctx: RenderCtx):
     createEffect(() => {
       const v = resolve(val, ctx)
       if (v === false || v == null) el.removeAttribute(key)
-      else if (v === true) el.setAttribute(key, '')
-      else el.setAttribute(key, isURLAttr ? sanitizeURL(String(v)) : String(v))
+      else if (v === true) setAttr(el, key, '')
+      else setAttr(el, key, isURLAttr ? sanitizeURL(String(v)) : String(v))
     }, ctx.scope)
   } else if (typeof val === 'boolean') {
-    if (val) el.setAttribute(key, '')
+    if (val) setAttr(el, key, '')
     else el.removeAttribute(key)
   } else if (val != null) {
     const str = String(val)
-    el.setAttribute(key, isURLAttr ? sanitizeURL(str) : str)
+    setAttr(el, key, isURLAttr ? sanitizeURL(str) : str)
   }
+}
+
+// Re-setting an unchanged src reloads iframes and media
+function setAttr(el: HTMLElement, key: string, v: string): void {
+  if (el.getAttribute(key) !== v) el.setAttribute(key, v)
 }
 
 function setupRouteOutlet(el: HTMLElement, ctx: RenderCtx): void {
@@ -939,53 +1094,51 @@ function setupRouteOutlet(el: HTMLElement, ctx: RenderCtx): void {
     currentScope = ctx.scope.child()
     const childInst = createInstance(def, ctx.inst.app, ctx.inst, {})
     ctx.inst.children.push(childInst)
+    trackInstance(currentScope, childInst, ctx.inst)
     childInst.template = def.view(createRefForInstance())
 
     const childCtx: RenderCtx = { inst: childInst, scope: currentScope, iterVars: new Map() }
     const nodes = renderNode(childInst.template, childCtx)
     currentNodes = nodes
-    for (const n of nodes) el.appendChild(n)
-
-    for (const n of nodes) {
-      if (n instanceof HTMLElement) { childInst.el = n; break }
-    }
+    for (const n of nodes) place(el, n)
+    childInst.el = firstElement(nodes)
 
     setupWatchers(childInst)
-
-    queueMicrotask(() => {
-      if (!childInst.destroyed && childInst.def.mount) {
-        childInst.def.mount.call(childInst.context)
-      }
-    })
-
-    currentScope.track(() => {
-      childInst.destroyed = true
-      childInst.scope.dispose()
-      if (childInst.def.unmount) {
-        untracked(() => childInst.def.unmount!.call(childInst.context))
-      }
-      const idx = ctx.inst.children.indexOf(childInst)
-      if (idx !== -1) ctx.inst.children.splice(idx, 1)
-    })
+    queueMount(childInst)
   }, ctx.scope)
 }
 
-// Mount the root component into a target element
-export function mountRoot(target: HTMLElement, inst: ComponentInstance): void {
+/**
+ * Render the root component into `target`.
+ * With `hydrate`, adopts the nodes already in `target` instead of creating them.
+ * @returns false when the existing nodes do not match the view; `inst` is then disposed
+ *   and `target` keeps partially adopted nodes, so the caller clears it and mounts a fresh instance.
+ */
+export function mountRoot(target: HTMLElement, inst: ComponentInstance, hydrate = false): boolean {
   inst.template = inst.def.view(createRefForInstance())
   const ctx: RenderCtx = { inst, scope: inst.scope, iterVars: new Map() }
-  const nodes = renderNode(inst.template, ctx)
+  let nodes: Node[]
 
-  for (const n of nodes) target.appendChild(n)
-  for (const n of nodes) {
-    if (n instanceof HTMLElement) { inst.el = n; break }
+  if (hydrate) {
+    hyd = { parent: target, next: target.firstChild }
+    try {
+      nodes = renderNode(inst.template, ctx)
+      removeRest(hyd)
+    } catch (e) {
+      if (e !== MISMATCH) throw e
+      inst.destroyed = true
+      inst.scope.dispose()
+      return false
+    } finally {
+      hyd = null
+    }
+  } else {
+    nodes = renderNode(inst.template, ctx)
+    for (const n of nodes) place(target, n)
   }
 
+  inst.el = firstElement(nodes)
   setupWatchers(inst)
-
-  queueMicrotask(() => {
-    if (!inst.destroyed && inst.def.mount) {
-      inst.def.mount.call(inst.context)
-    }
-  })
+  queueMount(inst)
+  return true
 }

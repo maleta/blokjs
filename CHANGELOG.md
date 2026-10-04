@@ -10,10 +10,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 
 - `@maleta/blokjs-pocketbase` package: `pbCollection()` returns a store definition that loads a PocketBase collection into `items` and applies realtime changes. `pbAuth()` returns one that mirrors the signed-in user. See `packages/blokjs-pocketbase/README.md`
+- Server rendering: `renderToString(opts, { url })` from `@maleta/blokjs/server` renders mount options to HTML with the same renderer as the browser, without a DOM or dependencies
+- Hydration: `blok.mount()` adopts the HTML inside a target that has the `data-blok-ssr` attribute instead of rendering it again, keeping focus, scroll position, iframes and text typed before the script loaded. When the HTML does not match the view it renders fresh, with a warning in development builds
+- `blokjs-prerender` package: CLI that writes the rendered HTML of each route into the page, so clients that do not run JavaScript (crawlers, link previews, site reviews) see the content. `--inline` embeds local scripts, stylesheets and the blokjs runtime, minified, into one self-contained file per route. See `packages/blokjs-prerender/README.md`
 
 ### Changed
 
 - The router resolves the initial route inside `mount()`, before the first render. The first render shows the matched route, and on a deep link the `/` component no longer mounts and unmounts first. Guards for the initial route now run before anything renders (`this.el` and `this.refs` are not set yet), and a `route.path` watcher no longer fires for the initial route: load that data in `mount()`
+- `unmount()` runs only for components whose `mount()` ran. A component destroyed in the same tick it was created gets neither
+
+### Fixed
+
+- A bound attribute or text whose value did not change is no longer written again; rewriting an unchanged `src` reloaded iframes and restarted media
 
 ## [0.4.0] - 2026-09-25
 

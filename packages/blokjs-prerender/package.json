@@ -1,0 +1,47 @@
+{
+  "name": "blokjs-prerender",
+  "version": "0.1.0",
+  "description": "Prerender BlokJS pages to static HTML that mount() hydrates",
+  "type": "module",
+  "bin": {
+    "blokjs-prerender": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsx build.ts && tsc --noEmit",
+    "test": "vitest run",
+    "prepublishOnly": "pnpm run build && pnpm test"
+  },
+  "dependencies": {
+    "@maleta/blokjs": "workspace:^",
+    "esbuild": "^0.24.0"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^21.1.7",
+    "@types/node": "^22.19.11",
+    "jsdom": "^26.1.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.4"
+  },
+  "keywords": [
+    "blokjs",
+    "prerender",
+    "ssr",
+    "hydration",
+    "cli"
+  ],
+  "author": "maleta",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maleta/blokjs.git"
+  },
+  "bugs": {
+    "url": "https://github.com/maleta/blokjs/issues"
+  },
+  "homepage": "https://github.com/maleta/blokjs/tree/main/packages/blokjs-prerender"
+}

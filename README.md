@@ -38,6 +38,7 @@ No virtual DOM. Views are plain JavaScript objects. State is reactive - when `co
 - **Async tracking** - automatic `loading` and `error` state for async methods
 - **Web components** - custom events via `on`, JS properties via `props`, `model` on value-based elements
 - **URL sanitization** - `javascript:` and dangerous URIs blocked on href/src attributes
+- **Prerendering** - optional build step writes the rendered HTML into the page, and `mount()` adopts it
 - **Zero dependencies** - single script tag, no build step needed
 
 ## Components
@@ -255,6 +256,27 @@ blok.mount('#app', {
 ```
 
 See the [package README](packages/blokjs-pocketbase/README.md) for the full API and [`examples/pocketbase`](examples/pocketbase) for a runnable app.
+
+## Prerendering
+
+Pages render in the browser, so clients that do not run JavaScript (crawlers, link previews, site reviews) see an empty mount node. [`blokjs-prerender`](packages/blokjs-prerender) writes the rendered HTML of each route into the page, and `blok.mount()` then adopts that HTML instead of rendering it again. The app keeps working without this step.
+
+```sh
+bunx blokjs-prerender index.html                # every route without :param, * or guard
+bunx blokjs-prerender index.html --routes / /about --out dist
+bunx blokjs-prerender index.html --inline --out dist   # one self-contained file per route
+```
+
+In a server or a custom build script, `renderToString` from `@maleta/blokjs/server` returns the same HTML:
+
+```js
+import { component, renderToString } from '@maleta/blokjs/server'
+
+const html = renderToString(appOptions, { url: '/about' })
+// <div id="app" data-blok-ssr>${html}</div>
+```
+
+See the [package README](packages/blokjs-prerender/README.md) for what runs during prerendering and what does not.
 
 ## Browser Compatibility
 

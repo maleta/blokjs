@@ -39,7 +39,7 @@ Options:
 - `watch` - react to changes: `{ search(newVal, oldVal) { this.filter() } }`
 - `methods` - functions callable from view and other methods
 - `mount()` - lifecycle hook, called after DOM mount (via microtask)
-- `unmount()` - lifecycle hook, called on destroy
+- `unmount()` - lifecycle hook, called on destroy (only if `mount()` ran)
 - `view($)` - returns view object (required)
 - `routes` - array of route definitions (enables router)
 - `guards` - route guard functions
@@ -62,6 +62,8 @@ blok.mount('#sidebar', { isolated: true, view: ($) => ({ Nav: {} }) })
 ```
 
 **Router constraint:** Only one mount can declare `routes`. A second mount with `routes` throws an error.
+
+**Prerendered target:** when the target has the `data-blok-ssr` attribute, mount adopts the HTML already inside it instead of rendering again. See Prerender & hydration.
 
 ### `blok.component(name, definition)` - Register component
 
@@ -363,6 +365,32 @@ blok.mount('#app', {
 - A store with `filter`, or with a sort that is not plain fields, reloads the list on each change instead of patching.
 - Connected collection stores reconnect and reload when the signed-in user changes.
 - Call `connect()` once per store (root `mount()`). Collections come from PocketBase migrations or the admin UI, never from the page.
+
+---
+
+## Prerender & hydration
+
+Clients without JavaScript only see the HTML in the file. The `blokjs-prerender` CLI writes the rendered HTML into the page; `mount()` then adopts it.
+
+```sh
+bunx blokjs-prerender index.html                              # every route without :param, * or guard
+bunx blokjs-prerender index.html --routes / /about --out dist # /about is written to about.html
+bunx blokjs-prerender index.html --inline --out dist          # self-contained files: scripts, styles, runtime embedded
+```
+
+- The CLI runs the page's scripts (inline, local `src` files, module scripts bundled with esbuild) with a server `blok`, renders each `blok.mount('#id', opts)` into that element, and adds `data-blok-ssr`. Running it again replaces the earlier output.
+- `mount()` on a `data-blok-ssr` target adopts the existing nodes (focus, scroll, typed input kept). If the HTML does not match the view: fresh render, warning in dev builds.
+- Server code:
+```js
+import { component, store, renderToString } from '@maleta/blokjs/server'
+const html = renderToString(appOptions, { url: '/about' })   // inner HTML of the mount node
+// <div id="app" data-blok-ssr>${html}</div>
+```
+- On the server, register components and stores through `@maleta/blokjs/server` (own registry). Each `renderToString` call gets fresh store state.
+- Never run on the server: `mount()`/`unmount()` hooks, route guards, event handlers. Data loaded in `mount()` is not in the HTML.
+- `--inline` minifies and embeds local scripts and stylesheets and replaces the blokjs tag with the runtime that rendered the HTML. Remote files stay external; images are not copied; needs `--out`.
+- Page scripts must not touch the DOM at top level; `localStorage` returns `null` during prerendering. CDN scripts other than blokjs, and module scripts with remote imports, are not evaluated.
+- Without `--inline`, pin the blokjs CDN version (an older cached runtime appends instead of adopting). Keep HTML comments (they mark `when`/`each`). Avoid markup the parser restructures (`tr` directly in `table`, block elements in `p`).
 
 ---
 

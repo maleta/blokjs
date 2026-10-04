@@ -1,55 +1,21 @@
-import { createApp, createInstance, type ComponentDef, type MountOptions, type App } from './component'
+import { createInstance, type MountOptions } from './component'
 import { mountRoot } from './renderer'
 import { createRouter } from './router'
-import { createStoreInstance, createStoreProxy, type StoreDef, type StoreInstance } from './store'
 import { untracked } from './reactive'
-import { validateComponentDef, validateMountOptions, validateStoreDef, validate } from './validate'
+import { validateMountOptions, validate } from './validate'
+import { component, store, createMountApp, rootDef } from './app'
 
-export { validate }
+export { component, store, validate }
 export type { ComponentDef, MountOptions } from './component'
 export type { StoreDef } from './store'
 
-const globalRegistry = new Map<string, ComponentDef>()
-const globalStoreDefs = new Map<string, StoreDef>()
-const globalStores = new Map<string, StoreInstance>()
-let globalStoreProxy: any = null
+const SSR_ATTR = 'data-blok-ssr'
 let routerOwner: { destroy: () => void } | null = null
-
-export function component(name: string, def: ComponentDef): void {
-  validateComponentDef(name, def)
-  globalRegistry.set(name, def)
-}
-
-export function store(name: string, def: StoreDef): void {
-  validateStoreDef(name, def)
-  if (globalStores.has(name)) {
-    console.warn(`[blok] Store "${name}" already registered. Skipping.`)
-    return
-  }
-  globalStoreDefs.set(name, def)
-  globalStores.set(name, createStoreInstance(name, def))
-  globalStoreProxy = createStoreProxy(globalStores)
-}
 
 export function mount(target: string | HTMLElement, opts: MountOptions): { destroy: () => void } {
   validateMountOptions(opts as Record<string, any>)
 
-  const app = createApp()
-
-  if (opts.isolated) {
-    // Isolated: own component registry (copy), own store instances
-    for (const [name, def] of globalRegistry) app.registry.set(name, def)
-    for (const [name] of globalStores) {
-      const storeDef = globalStoreDefs.get(name)
-      if (storeDef) app.stores.set(name, createStoreInstance(name, storeDef))
-    }
-    app.storeProxy = createStoreProxy(app.stores)
-  } else {
-    // Shared: global registry and stores by reference
-    app.registry = globalRegistry
-    app.stores = globalStores
-    app.storeProxy = globalStoreProxy ?? createStoreProxy(globalStores)
-  }
+  const app = createMountApp(!!opts.isolated)
 
   // Resolve target element
   const el = typeof target === 'string' ? document.querySelector(target) : target
@@ -62,33 +28,35 @@ export function mount(target: string | HTMLElement, opts: MountOptions): { destr
     throw new Error('[blok] Router already active. Only one mount can declare routes.')
   }
 
-  // Create root instance
-  const rootDef: ComponentDef = {
-    state: opts.state,
-    computed: opts.computed,
-    watch: opts.watch,
-    methods: opts.methods,
-    mount: opts.mount,
-    unmount: opts.unmount,
-    view: opts.view,
+  const def = rootDef(opts)
+  const createRoot = () => {
+    const inst = createInstance(def, app, null, {})
+    app.root = inst
+    return inst
   }
 
-  const inst = createInstance(rootDef, app, null, {})
-  app.root = inst
-
   // Guards run while the router resolves the initial route, so the root context must exist first
+  let inst = createRoot()
   if (opts.routes) {
     app.router = createRouter(app, opts.routes, opts.guards || {}, opts.mode)
   }
 
-  // Mount
-  mountRoot(el, inst)
+  if (el.hasAttribute(SSR_ATTR)) {
+    el.removeAttribute(SSR_ATTR)
+    if (!mountRoot(el, inst, true)) {
+      el.textContent = ''
+      inst = createRoot()
+      mountRoot(el, inst)
+    }
+  } else {
+    mountRoot(el, inst)
+  }
 
   const handle = {
     destroy() {
       inst.destroyed = true
       inst.scope.dispose()
-      if (inst.def.unmount) {
+      if (inst.mounted && inst.def.unmount) {
         untracked(() => inst.def.unmount!.call(inst.context))
       }
       if (app.router) {

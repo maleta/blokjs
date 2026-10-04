@@ -32,7 +32,16 @@ async function build() {
     minify: true,
     outfile: 'dist/blokjs.esm.min.js',
   })
-  console.log('Build complete: dist/blokjs.js, dist/blokjs.min.js, dist/blokjs.esm.js, dist/blokjs.esm.min.js')
+  await esbuild.build({
+    entryPoints: ['src/server.ts'],
+    bundle: true,
+    format: 'esm',
+    platform: 'neutral',
+    target: 'es2020',
+    define: { __DEV__: 'true' },
+    outfile: 'dist/blokjs-server.mjs',
+  })
+  console.log('Build complete: dist/blokjs.js, dist/blokjs.min.js, dist/blokjs.esm.js, dist/blokjs.esm.min.js, dist/blokjs-server.mjs')
 }
 
 build()

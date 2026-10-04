@@ -136,6 +136,7 @@
               nav('quick-start', 'Quick Start'),
               nav('vite-plugin', 'Using with Vite'),
               nav('pocketbase', 'Using with PocketBase'),
+              nav('prerender', 'Prerender & Hydration'),
               nav('full-example', 'Full Example'),
             ),
             grp('API',
@@ -344,6 +345,37 @@ blok.mount('#app', {
               p('Create collections with a PocketBase migration or the admin UI. Serve the app from PocketBase\'s pb_public directory so the page and the API share an origin. See examples/pocketbase for a runnable app.'),
             ),
 
+            // --- Prerender & Hydration ---
+            sec('prerender', 'Prerender & Hydration',
+              p('A BlokJS page renders in the browser, so clients that do not run JavaScript (crawlers other than Google, link previews, payment provider site reviews, curl) see an empty mount node. Prerendering writes the rendered HTML into the page as a build step. The app keeps working without that step; it only adds HTML for those clients.'),
+              c(`bunx blokjs-prerender index.html
+bunx blokjs-prerender index.html --routes / /about --out dist
+bunx blokjs-prerender index.html --inline --out dist`, 'none'),
+              p('The CLI runs the scripts of the page (inline, local files and module scripts) with a server build of blok, renders every blok.mount() call, and writes the HTML into the mount node together with a data-blok-ssr attribute. Without --routes it renders every route that has no :param, no wildcard and no guard. The route /about is written to about.html, which static hosts serve at /about. Without --out the page is updated in place, and running it again replaces the earlier output.'),
+              p('With --inline, every output file is self-contained: local scripts and stylesheets are minified and embedded, and the blokjs script tag is replaced by the runtime that rendered the HTML, so the two always match. Remote scripts and stylesheets stay external, and images and fonts are not copied. --inline needs --out, so the source page stays as it is.'),
+              p('In the browser, blok.mount() sees data-blok-ssr and adopts the existing nodes instead of creating new ones. Nothing is duplicated or flashes, and focus, scroll position, iframes and text typed before the script loaded are kept. When the HTML does not match the view, mount() renders fresh, and development builds log where the difference is.'),
+              sub('prerender-server', 'renderToString(opts, options)'),
+              p('Servers and custom build scripts get the same HTML from the server entry. It runs the regular renderer against a small built-in DOM, with no browser and no dependencies.'),
+              c(`import { component, renderToString } from '@maleta/blokjs/server'
+
+component('Hello', { props: ['name'], view: ($) => ({ h1: $.name }) })
+
+const html = renderToString({
+  state: { who: 'world' },
+  view: ($) => ({ Hello: { name: $.who } }),
+}, { url: '/' })
+// <div id="app" data-blok-ssr>\${html}</div>`),
+              note('On the server, register components and stores through @maleta/blokjs/server. It has its own registry, separate from the browser build.'),
+              sub('prerender-limits', 'Limits'),
+              { ul: { style: 'font-size:14px; line-height:1.8; margin:10px 0 16px 20px; color:#333', children: [
+                { li: 'mount() and unmount() hooks, route guards and event handlers do not run on the server. Data loaded in mount() is not in the HTML; the page shows what the view shows before that data arrives.' },
+                { li: 'Page scripts must not touch the DOM at the top level; move that code into mount(). localStorage returns null during prerendering. CDN scripts other than blokjs, and module scripts that import remote URLs, are not evaluated.' },
+                { li: 'Without --inline, pin the blokjs version in the CDN URL. A cached older runtime appends to the prerendered HTML instead of adopting it, which shows the content twice.' },
+                { li: 'Keep HTML comments in the output: they mark when and each blocks. A minifier that strips comments makes every page render fresh.' },
+                { li: 'Markup that the HTML parser restructures cannot be adopted, for example tr directly inside table, or block elements inside p. renderToString warns about these.' },
+              ] } },
+            ),
+
             // --- blok.component() ---
             sec('blokjs-component', 'blok.component(name, def)',
               p('Registers a reusable component. The name should start with an uppercase letter - lowercase names are treated as HTML elements, not components.'),
@@ -407,6 +439,13 @@ blok.mount('#sidebar', {
   view: ($) => ({ Nav: {} })
 })`),
               note('Only one mount can declare routes. A second mount with routes throws an error.'),
+              { p: { children: [
+                'When the target has the ',
+                ic('data-blok-ssr'),
+                ' attribute, mount() adopts the HTML already inside it instead of rendering it again. See ',
+                { a: { href: '#prerender', text: 'Prerender & Hydration' } },
+                '.',
+              ] } },
 
               sub('mount-options', 'Root-Only Options'),
               { p: { children: [
