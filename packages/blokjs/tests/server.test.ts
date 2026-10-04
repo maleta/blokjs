@@ -137,6 +137,16 @@ describe('renderToString output', () => {
     expect(html).toBe('<section><h2>Hello</h2><div><p>inside</p></div></section>')
   })
 
+  it('keeps the case of svg tags and attributes', () => {
+    const html = renderToString({
+      view: () => ({ svg: { viewBox: '0 0 10 10', children: [
+        { linearGradient: { gradientUnits: 'userSpaceOnUse' } },
+        { foreignObject: { children: [{ div: 'x' }] } },
+      ] } }),
+    })
+    expect(html).toBe('<svg viewBox="0 0 10 10"><linearGradient gradientUnits="userSpaceOnUse"></linearGradient><foreignObject><div>x</div></foreignObject></svg>')
+  })
+
   it('emits raw html content, neutralizing script tags', () => {
     const html = renderToString({
       view: () => ({ div: { html: '<b>bold</b><script>alert(1)</script>' } }),

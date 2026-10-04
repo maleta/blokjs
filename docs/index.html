@@ -420,7 +420,7 @@ $.store.not.ready // 'not' becomes a property name, not negation</code></pre><h3
 
 // Custom elements / web components work too
 { 'my-widget': { class: 'fancy', text: $.data } }  // &lt;my-widget class="fancy"&gt;...&lt;/my-widget&gt;
-{ 'sl-button': { variant: 'primary', text: 'Click' } }  // &lt;sl-button variant="primary"&gt;Click&lt;/sl-button&gt;</code></pre><div class="note">Any lowercase tag name is rendered with document.createElement — standard HTML, SVG, and custom elements all work. Uppercase tags are treated as BlokJS components.</div></div><div id="text-bind" class="section"><h2>Text</h2><div class="table-wrap"><table><thead><tr><th>Key</th><th>Description</th></tr></thead><tbody><tr><td><code class="ic">text</code></td><td>Text content. Static string or reactive ref.</td></tr></tbody></table></div><pre class="code-block"><code class="language-javascript">// Static text
+{ 'sl-button': { variant: 'primary', text: 'Click' } }  // &lt;sl-button variant="primary"&gt;Click&lt;/sl-button&gt;</code></pre><div class="note">Any lowercase tag name becomes an element: standard HTML, custom elements and SVG. svg and everything inside it are created in the SVG namespace, so tags and attributes such as linearGradient and viewBox work as written; the content of foreignObject is HTML again. Uppercase tags are treated as BlokJS components.</div></div><div id="text-bind" class="section"><h2>Text</h2><div class="table-wrap"><table><thead><tr><th>Key</th><th>Description</th></tr></thead><tbody><tr><td><code class="ic">text</code></td><td>Text content. Static string or reactive ref.</td></tr></tbody></table></div><pre class="code-block"><code class="language-javascript">// Static text
 { p: { text: 'Hello World' } }
 
 // Reactive text
@@ -1569,7 +1569,7 @@ $.store.not.ready // 'not' becomes a property name, not negation`),
 // Custom elements / web components work too
 { 'my-widget': { class: 'fancy', text: $.data } }  // <my-widget class="fancy">...</my-widget>
 { 'sl-button': { variant: 'primary', text: 'Click' } }  // <sl-button variant="primary">Click</sl-button>`),
-              note('Any lowercase tag name is rendered with document.createElement — standard HTML, SVG, and custom elements all work. Uppercase tags are treated as BlokJS components.'),
+              note('Any lowercase tag name becomes an element: standard HTML, custom elements and SVG. svg and everything inside it are created in the SVG namespace, so tags and attributes such as linearGradient and viewBox work as written; the content of foreignObject is HTML again. Uppercase tags are treated as BlokJS components.'),
             ),
 
             // --- Text ---

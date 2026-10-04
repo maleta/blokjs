@@ -248,6 +248,25 @@ describe('hydration', () => {
     expect(el.querySelector('span')!.textContent).toBe('2')
   })
 
+  it('adopts prerendered svg, including camelCase tags', async () => {
+    const { el, adopted } = hydrate({
+      state: { r: 2 },
+      methods: { grow() { this.r = 4 } },
+      view: ($) => ({ div: { children: [
+        { button: { click: 'grow' } },
+        { svg: { viewBox: '0 0 10 10', class: 'icon', children: [
+          { linearGradient: { id: 'g', children: [{ stop: { offset: '0' } }] } },
+          { circle: { r: $.r, fill: 'url(#g)' } },
+        ] } },
+      ] } }),
+    })
+    expect(adopted()).toBe(true)
+    expect(el.querySelector('svg')!.namespaceURI).toBe('http://www.w3.org/2000/svg')
+    el.querySelector('button')!.click()
+    await flush()
+    expect(el.querySelector('circle')!.getAttribute('r')).toBe('4')
+  })
+
   it('hydrates the current route and keeps navigating', async () => {
     component('HydHome', { view: () => ({ h1: 'Home' }) })
     component('HydAbout', { view: () => ({ h1: 'About' }) })

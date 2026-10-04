@@ -15,9 +15,13 @@ export interface RenderCtx {
   inst: ComponentInstance
   scope: Scope
   iterVars: Map<string, () => any>
+  /** Namespace for elements created here; unset means HTML */
+  ns?: string
 }
 
-export type NodeFactory = Pick<Document, 'createElement' | 'createTextNode' | 'createComment'>
+export type NodeFactory = Pick<Document, 'createElement' | 'createElementNS' | 'createTextNode' | 'createComment'>
+
+const SVG_NS = 'http://www.w3.org/2000/svg'
 
 let doc: NodeFactory | null = null
 
@@ -52,11 +56,16 @@ function skipBlank(cur: Cursor): void {
   }
 }
 
-function makeElement(tag: string): HTMLElement {
-  if (!hyd) return (doc ?? document).createElement(tag)
+function makeElement(tag: string, ctx: RenderCtx): HTMLElement {
+  const ns = tag === 'svg' ? SVG_NS : ctx.ns
+  if (!hyd) {
+    const d = doc ?? document
+    return (ns ? d.createElementNS(ns, tag) : d.createElement(tag)) as HTMLElement
+  }
   skipBlank(hyd)
   const n = hyd.next
-  if (!n || n.nodeType !== 1 || (n as Element).localName !== tag.toLowerCase()) mismatch(`<${tag}>`, n)
+  // The parser keeps the case of SVG tags such as linearGradient
+  if (!n || n.nodeType !== 1 || (n as Element).localName.toLowerCase() !== tag.toLowerCase()) mismatch(`<${tag}>`, n)
   hyd.next = n.nextSibling
   return n as HTMLElement
 }
@@ -87,6 +96,12 @@ function makeText(s?: string): Text {
 // Rendered nodes are either fresh or, while hydrating, already in place
 function place(parent: Node, n: Node): void {
   if (!n.parentNode) parent.appendChild(n)
+}
+
+// Children of an svg element are SVG too, except the HTML content of foreignObject
+function contentCtx(el: Element, tag: string, ctx: RenderCtx): RenderCtx {
+  const ns = el.namespaceURI === SVG_NS && tag !== 'foreignObject' ? SVG_NS : undefined
+  return ns === ctx.ns ? ctx : { ...ctx, ns }
 }
 
 function setText(el: HTMLElement, s: string): void {
@@ -253,22 +268,22 @@ export function renderNode(tpl: any, ctx: RenderCtx): Node[] {
 
 function renderElement(tag: string, value: any, ctx: RenderCtx): Node[] {
   if (typeof value === 'string') {
-    const el = makeElement(tag)
+    const el = makeElement(tag, ctx)
     setText(el, value)
     return [el]
   }
   if (isRef(value)) {
-    const el = makeElement(tag)
+    const el = makeElement(tag, ctx)
     const outer = enterChildren(el)
     setupTextBinding(el, value, ctx)
     leaveChildren(outer)
     return [el]
   }
   if (value == null || typeof value === 'boolean') {
-    return [makeElement(tag)]
+    return [makeElement(tag, ctx)]
   }
   if (typeof value !== 'object') {
-    const el = makeElement(tag)
+    const el = makeElement(tag, ctx)
     setText(el, String(value))
     return [el]
   }
@@ -278,7 +293,7 @@ function renderElement(tag: string, value: any, ctx: RenderCtx): Node[] {
   // Conditional element: { div: { when: $.editing, ... } }
   if ('when' in opts) return renderConditionalElement(tag, opts, ctx)
 
-  const el = makeElement(tag)
+  const el = makeElement(tag, ctx)
   applyOptions(el, tag, opts, ctx)
   return [el]
 }
@@ -303,7 +318,7 @@ function renderConditionalElement(tag: string, opts: Record<string, any>, ctx: R
     if (show) {
       childScope = ctx.scope.child()
       const childCtx: RenderCtx = { ...ctx, scope: childScope }
-      currentEl = makeElement(tag)
+      currentEl = makeElement(tag, ctx)
       applyOptions(currentEl, tag, restOpts, childCtx)
       if (endMarker?.parentNode) {
         endMarker.parentNode.insertBefore(currentEl, endMarker)
@@ -388,6 +403,7 @@ function renderEach(tpl: any, ctx: RenderCtx): Node[] {
       inst: ctx.inst,
       scope: itemScope,
       iterVars: new Map(ctx.iterVars),
+      ns: ctx.ns,
     }
     let currentIndex = index
 
@@ -609,8 +625,8 @@ function renderComponent(tag: string, propsObj: Record<string, any>, ctx: Render
 
   const childScope = ctx.scope.child()
   trackInstance(childScope, inst, ctx.inst)
-  const childCtx: RenderCtx = { inst, scope: childScope, iterVars: new Map() }
-  const nodes = renderNode(inst.template, childCtx)
+  const compCtx: RenderCtx = { inst, scope: childScope, iterVars: new Map(), ns: ctx.ns }
+  const nodes = renderNode(inst.template, compCtx)
   inst.el = firstElement(nodes)
 
   setupWatchers(inst)
@@ -657,6 +673,7 @@ function applyOptions(el: HTMLElement, tag: string, opts: Record<string, any>, c
   // Class forms only add, so classes the server rendered for a different state would survive
   if (hyd && 'class' in opts) el.removeAttribute('class')
   const outer = enterChildren(el)
+  const content = contentCtx(el, tag, ctx)
   // Pass 1: HTML attributes first (so `type` is set before `model`)
   for (const [key, val] of Object.entries(opts)) {
     if (key === 'bind' && typeof val === 'object' && val != null) {
@@ -702,11 +719,11 @@ function applyOptions(el: HTMLElement, tag: string, opts: Record<string, any>, c
       if (val && typeof val === 'object' && (val as any).slot === true) {
         const slotChildren: any[] = ctx.inst._slotChildren || []
         if (slotChildren.length > 0) {
-          const nodes = renderNodes(slotChildren, ctx)
+          const nodes = renderNodes(slotChildren, content)
           for (const n of nodes) place(el, n)
         }
       } else if (Array.isArray(val)) {
-        const nodes = renderNodes(val, ctx)
+        const nodes = renderNodes(val, content)
         for (const n of nodes) place(el, n)
       }
       continue
@@ -715,7 +732,7 @@ function applyOptions(el: HTMLElement, tag: string, opts: Record<string, any>, c
     if (key === 'style') { applyStyle(el, val, ctx); continue }
     if (key === 'model') { setupModel(el, tag, val, ctx); continue }
     if (key === 'ref') { if (typeof val === 'string') ctx.inst.refs[val] = el; continue }
-    if (key === 'route' && val === true) { setupRouteOutlet(el, ctx); continue }
+    if (key === 'route' && val === true) { setupRouteOutlet(el, content); continue }
     if (key === 'link' && val === true && tag === 'a') {
       el.addEventListener('click', (e) => {
         e.preventDefault()
@@ -758,11 +775,11 @@ function setupTextBinding(el: HTMLElement, ref: any, ctx: RenderCtx): void {
 
 function applyClass(el: HTMLElement, val: any, ctx: RenderCtx): void {
   if (typeof val === 'string') {
-    el.className = val
+    setAttr(el, 'class', val)
     return
   }
   if (isRef(val)) {
-    createEffect(() => { el.className = String(resolve(val, ctx) ?? '') }, ctx.scope)
+    createEffect(() => { setAttr(el, 'class', String(resolve(val, ctx) ?? '')) }, ctx.scope)
     return
   }
   if (Array.isArray(val)) {
@@ -1097,8 +1114,8 @@ function setupRouteOutlet(el: HTMLElement, ctx: RenderCtx): void {
     trackInstance(currentScope, childInst, ctx.inst)
     childInst.template = def.view(createRefForInstance())
 
-    const childCtx: RenderCtx = { inst: childInst, scope: currentScope, iterVars: new Map() }
-    const nodes = renderNode(childInst.template, childCtx)
+    const routeCtx: RenderCtx = { inst: childInst, scope: currentScope, iterVars: new Map(), ns: ctx.ns }
+    const nodes = renderNode(childInst.template, routeCtx)
     currentNodes = nodes
     for (const n of nodes) place(el, n)
     childInst.el = firstElement(nodes)

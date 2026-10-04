@@ -1366,3 +1366,87 @@ describe('function-form when', () => {
     expect(el.querySelector('.fn')!.textContent).toBe('fn-form')
   })
 })
+
+describe('svg', () => {
+  const SVG = 'http://www.w3.org/2000/svg'
+  const HTML = 'http://www.w3.org/1999/xhtml'
+
+  it('creates svg and its descendants in the SVG namespace', () => {
+    const { el } = mountApp({
+      view: () => ({ svg: { viewBox: '0 0 10 10', children: [
+        { g: { children: [{ path: { d: 'M0 0L10 10' } }] } },
+        { linearGradient: { id: 'grad' } },
+      ] } }),
+    })
+    const svg = el.querySelector('svg')!
+    expect(svg.namespaceURI).toBe(SVG)
+    expect(svg.getAttribute('viewBox')).toBe('0 0 10 10')
+    expect(el.querySelector('g')!.namespaceURI).toBe(SVG)
+    expect(el.querySelector('path')!.namespaceURI).toBe(SVG)
+    expect(svg.lastElementChild!.localName).toBe('linearGradient')
+    expect(svg.lastElementChild!.namespaceURI).toBe(SVG)
+  })
+
+  it('switches back to HTML inside foreignObject', () => {
+    const { el } = mountApp({
+      view: () => ({ svg: { children: [{ foreignObject: { children: [{ p: 'html' }] } }] } }),
+    })
+    expect(el.querySelector('svg')!.firstElementChild!.namespaceURI).toBe(SVG)
+    expect(el.querySelector('p')!.namespaceURI).toBe(HTML)
+  })
+
+  it('applies every class form to svg elements', async () => {
+    const { el } = mountApp({
+      state: { tone: 'dark', on: true },
+      methods: { flip() { this.tone = 'light'; this.on = false } },
+      view: ($) => ({ div: { children: [
+        { button: { click: 'flip' } },
+        { svg: { class: 'icon', children: [
+          { circle: { class: $.tone } },
+          { rect: { class: ['box', $.tone] } },
+          { path: { class: { active: $.on } } },
+        ] } },
+      ] } }),
+    })
+    const cls = (sel: string) => el.querySelector(sel)!.getAttribute('class')
+    expect(cls('svg')).toBe('icon')
+    expect(cls('circle')).toBe('dark')
+    expect(cls('rect')).toBe('box dark')
+    expect(cls('path')).toBe('active')
+    el.querySelector('button')!.click()
+    await flush()
+    expect(cls('circle')).toBe('light')
+    expect(cls('rect')).toBe('box light')
+    expect(cls('path')).toBe('')
+  })
+
+  it('keeps the SVG namespace for nodes rendered later by when and each', async () => {
+    const { el } = mountApp({
+      state: { show: false, dots: [1] },
+      methods: { more() { this.show = true; this.dots = [1, 2, 3] } },
+      view: ($) => ({ div: { children: [
+        { button: { click: 'more' } },
+        { svg: { children: [
+          { when: $.show, children: [{ line: { x2: 5 } }] },
+          { circle: { when: $.show, r: 2 } },
+          { each: $.dots, as: 'd', children: [{ rect: { width: $.d } }] },
+        ] } },
+      ] } }),
+    })
+    el.querySelector('button')!.click()
+    await flush()
+    expect(el.querySelector('line')!.namespaceURI).toBe(SVG)
+    expect(el.querySelector('circle')!.namespaceURI).toBe(SVG)
+    const rects = Array.from(el.querySelectorAll('rect'))
+    expect(rects).toHaveLength(3)
+    expect(rects.every(r => r.namespaceURI === SVG)).toBe(true)
+  })
+
+  it('renders components placed inside svg in the SVG namespace', () => {
+    component('SvgDot', { props: ['r'], view: ($) => ({ g: { children: [{ circle: { r: $.r } }] } }) })
+    const { el } = mountApp({ view: () => ({ svg: { children: [{ SvgDot: { r: 3 } }] } }) })
+    expect(el.querySelector('g')!.namespaceURI).toBe(SVG)
+    expect(el.querySelector('circle')!.namespaceURI).toBe(SVG)
+    expect(el.querySelector('circle')!.getAttribute('r')).toBe('3')
+  })
+})

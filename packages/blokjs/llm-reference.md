@@ -90,6 +90,14 @@ The `view` function receives `$` (a reactive reference builder) and returns a pl
 { div: { children: [ ... ] } }     // children array
 ```
 
+SVG: `svg` and everything inside it are created in the SVG namespace; write camelCase tags and attributes as-is. The content of `foreignObject` is HTML again.
+
+```js
+{ svg: { viewBox: '0 0 24 24', class: 'icon', children: [
+  { path: { d: 'M12 2L2 22h20z', fill: $.color } },
+] } }
+```
+
 ### Conditionals (when)
 
 ```js

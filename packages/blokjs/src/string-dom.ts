@@ -14,6 +14,7 @@ const CLOSES_P: Record<string, 1> = {
 }
 // Elements that end the parser's search for an open <p>
 const P_SCOPE: Record<string, 1> = { button: 1, table: 1, td: 1, th: 1, caption: 1, template: 1, object: 1 }
+const HTML_NS = 'http://www.w3.org/1999/xhtml'
 const ATTR_NAME = /^[^\s"'<>/=\0]+$/
 
 abstract class StringNode {
@@ -109,13 +110,18 @@ export class StringElement extends StringNode {
   liveChecked: boolean | null = null
   liveSelected: boolean | null = null
 
-  constructor(readonly localName: string) { super() }
+  constructor(readonly localName: string, readonly namespaceURI = HTML_NS) { super() }
 
-  get tagName(): string { return this.localName.toUpperCase() }
+  get tagName(): string { return this.namespaceURI === HTML_NS ? this.localName.toUpperCase() : this.localName }
+
+  // HTML attribute names are case-insensitive; SVG ones such as viewBox are not
+  private attrKey(name: string): string {
+    return this.namespaceURI === HTML_NS ? name.toLowerCase() : name
+  }
   get firstChild(): StringNode | null { return this.childNodes[0] ?? null }
 
   getAttribute(name: string): string | null {
-    const n = name.toLowerCase()
+    const n = this.attrKey(name)
     if (n === 'style') {
       const s = this.style.toString()
       return s === '' && !this.attrs.has('style') ? null : s
@@ -129,7 +135,7 @@ export class StringElement extends StringNode {
 
   setAttribute(name: string, value: string): void {
     if (!ATTR_NAME.test(name)) throw new Error(`[blok] Invalid attribute name: ${name}`)
-    const n = name.toLowerCase()
+    const n = this.attrKey(name)
     if (n === 'style') {
       this.style.raw = String(value)
       this.style.props.clear()
@@ -144,7 +150,7 @@ export class StringElement extends StringNode {
   }
 
   removeAttribute(name: string): void {
-    const n = name.toLowerCase()
+    const n = this.attrKey(name)
     if (n === 'style') {
       this.style.raw = ''
       this.style.props.clear()
@@ -232,6 +238,7 @@ export class StringElement extends StringNode {
 
 export interface StringDocument {
   createElement(tag: string): StringElement
+  createElementNS(ns: string, tag: string): StringElement
   createTextNode(data: string): StringText
   createComment(data: string): StringComment
 }
@@ -239,6 +246,7 @@ export interface StringDocument {
 export function createStringDocument(): StringDocument {
   return {
     createElement: tag => new StringElement(tag.toLowerCase()),
+    createElementNS: (ns, tag) => new StringElement(tag, ns),
     createTextNode: data => new StringText(String(data)),
     createComment: data => new StringComment(String(data)),
   }

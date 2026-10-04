@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- SVG renders: `svg` and everything inside it are created in the SVG namespace, and the content of `foreignObject` in the HTML namespace. Before, they were unknown HTML elements that browsers do not draw. Classes on SVG elements are set through the `class` attribute
+- Hydration adopts prerendered SVG elements whose tag names are camelCase, such as `linearGradient`
+
 ## [0.5.0] - 2026-10-04
 
 ### Added
