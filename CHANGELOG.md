@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-04
+
 ### Added
 
 - `@maleta/blokjs-pocketbase` package: `pbCollection()` returns a store definition that loads a PocketBase collection into `items` and applies realtime changes. `pbAuth()` returns one that mirrors the signed-in user. See `packages/blokjs-pocketbase/README.md`
