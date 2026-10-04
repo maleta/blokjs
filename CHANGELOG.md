@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - `@maleta/blokjs-pocketbase` package: `pbCollection()` returns a store definition that loads a PocketBase collection into `items` and applies realtime changes. `pbAuth()` returns one that mirrors the signed-in user. See `packages/blokjs-pocketbase/README.md`
 
+### Changed
+
+- The router resolves the initial route inside `mount()`, before the first render. The first render shows the matched route, and on a deep link the `/` component no longer mounts and unmounts first. Guards for the initial route now run before anything renders (`this.el` and `this.refs` are not set yet), and a `route.path` watcher no longer fires for the initial route: load that data in `mount()`
+
 ## [0.4.0] - 2026-09-25
 
 ### Added

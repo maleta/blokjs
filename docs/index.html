@@ -1403,7 +1403,7 @@ computed: {
                 [ic("'history'"), 'Uses History API (pushState). Requires server configuration.'],
                 [ic("'auto'"), 'Uses hash for file:// protocol, history otherwise. This is the default.'],
               ]),
-              note('The initial route is resolved asynchronously (via microtask) so that app.root is set before guards run. During the mount() lifecycle hook, this.route.path may still be "/" until the microtask fires.'),
+              note('The initial route is resolved when mount() runs, before the first render, so the first render already shows the matched route. Guards for it run before anything renders: this.el and this.refs are not set yet. A watcher on route.path does not fire for the initial route, so load data for it in mount().'),
 
               sub('programmatic-nav', 'Programmatic Navigation'),
               c(`// Navigate to a path

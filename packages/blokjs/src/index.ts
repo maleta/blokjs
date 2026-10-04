@@ -57,12 +57,9 @@ export function mount(target: string | HTMLElement, opts: MountOptions): { destr
     throw new Error(`[blok] Target element not found: ${target}`)
   }
 
-  // Setup router (singleton - only one mount can own it)
-  if (opts.routes) {
-    if (routerOwner) {
-      throw new Error('[blok] Router already active. Only one mount can declare routes.')
-    }
-    app.router = createRouter(app, opts.routes, opts.guards || {}, opts.mode)
+  // Router is a singleton - only one mount can own it
+  if (opts.routes && routerOwner) {
+    throw new Error('[blok] Router already active. Only one mount can declare routes.')
   }
 
   // Create root instance
@@ -78,6 +75,11 @@ export function mount(target: string | HTMLElement, opts: MountOptions): { destr
 
   const inst = createInstance(rootDef, app, null, {})
   app.root = inst
+
+  // Guards run while the router resolves the initial route, so the root context must exist first
+  if (opts.routes) {
+    app.router = createRouter(app, opts.routes, opts.guards || {}, opts.mode)
+  }
 
   // Mount
   mountRoot(el, inst)

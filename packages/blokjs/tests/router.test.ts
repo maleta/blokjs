@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { matchRoute } from '../src/router'
+import { mount, component } from '../src/index'
 
 // matchRoute expects ParsedRoute[] which is not exported,
 // so we construct the objects manually matching its shape.
@@ -71,5 +72,54 @@ describe('matchRoute', () => {
     const parsed = makeParsed([{ path: '/users/:id' }, { path: '*' }])
     const result = matchRoute(parsed, '/users/1')
     expect(result!.config.path).toBe('/users/:id')
+  })
+})
+
+describe('initial route', () => {
+  let destroy: (() => void) | null = null
+
+  afterEach(() => {
+    destroy?.()
+    destroy = null
+    history.replaceState(null, '', '/')
+  })
+
+  function start(opts: Parameters<typeof mount>[1]) {
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    const app = mount(el, opts)
+    destroy = () => { app.destroy(); el.remove() }
+    return el
+  }
+
+  it('renders a deep link in the first synchronous render', async () => {
+    const homeMount = vi.fn()
+    component('InitHome', { mount: homeMount, view: () => ({ h1: 'Home' }) })
+    component('InitAbout', { view: () => ({ h1: 'About' }) })
+    history.pushState(null, '', '/about')
+    const el = start({
+      routes: [{ path: '/', component: 'InitHome' }, { path: '/about', component: 'InitAbout' }],
+      view: () => ({ main: { route: true } }),
+    })
+    expect(el.textContent).toBe('About')
+    await new Promise(r => setTimeout(r, 0))
+    expect(homeMount).not.toHaveBeenCalled()
+  })
+
+  it('runs guards before the first render', () => {
+    component('InitLogin', { view: () => ({ h1: 'Login' }) })
+    component('InitAdmin', { view: () => ({ h1: 'Admin' }) })
+    history.pushState(null, '', '/admin')
+    const el = start({
+      state: { user: null },
+      routes: [
+        { path: '/login', component: 'InitLogin' },
+        { path: '/admin', component: 'InitAdmin', guard: 'auth' },
+      ],
+      guards: { auth(this: any) { return this.user ? true : '/login' } },
+      view: () => ({ main: { route: true } }),
+    })
+    expect(el.textContent).toBe('Login')
+    expect(location.pathname).toBe('/login')
   })
 })

@@ -407,6 +407,8 @@ this.navigate(-1)        // history back
 
 Guards return: `true` (allow), `false` (block), or `'/redirect-path'`.
 
+The initial route resolves inside `mount()`, before the first render: its guard runs before anything renders (`this.el`, `this.refs` not set yet), and a `route.path` watcher does not fire for it. Load data for the initial route in `mount()`.
+
 ---
 
 ## Context (`this`) in methods, computed, watch, mount, unmount

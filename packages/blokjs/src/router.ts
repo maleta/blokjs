@@ -221,8 +221,7 @@ export function createRouter(
     return location.pathname + location.search
   }
 
-  // Defer initial route check so app.root is set before guards run
-  queueMicrotask(() => checkGuardsAndUpdate(getInitialPath()))
+  checkGuardsAndUpdate(getInitialPath())
 
   return router
 }
