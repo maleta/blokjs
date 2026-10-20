@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-20
+
 ### Added
 
 - `blok.store(name, def)` returns the store, the same object shared mounts see as `this.store[name]`. `blok.store(name)` looks up a registered store and returns `undefined` for an unknown name. A duplicate registration still warns and returns the existing store
