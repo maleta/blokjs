@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import * as esbuild from 'esbuild'
 import * as api from '../src/index'
-import { shared } from '../build'
+import { shared } from '../build-options'
 
 async function globalKeys(minify: boolean): Promise<string[]> {
   const out = await esbuild.build({ ...shared, minify, define: { __DEV__: String(!minify) }, write: false, outfile: 'blokjs.js' })

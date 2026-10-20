@@ -1,17 +1,5 @@
 import * as esbuild from 'esbuild'
-import { pathToFileURL } from 'node:url'
-
-export const shared: esbuild.BuildOptions = {
-  entryPoints: ['src/index.ts'],
-  bundle: true,
-  format: 'iife',
-  globalName: '__blokExports',
-  target: 'es2020',
-  define: { __DEV__: 'true' },
-  footer: {
-    js: ';(function(){var e=__blokExports;if(typeof window!=="undefined"){window.blok={...e}}})()',
-  },
-}
+import { shared } from './build-options'
 
 async function build() {
   await esbuild.build({ ...shared, outfile: 'dist/blokjs.js' })
@@ -45,4 +33,4 @@ async function build() {
   console.log('Build complete: dist/blokjs.js, dist/blokjs.min.js, dist/blokjs.esm.js, dist/blokjs.esm.min.js, dist/blokjs-server.mjs')
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) build()
+build()
