@@ -282,7 +282,7 @@ this.store.auth.login(e, p)   // method
 
 // In methods
 this.store.auth.loading.login  // true while running
-this.store.auth.error.login    // rejection value (typically Error) or null</code></pre><h3 id="store-outside">Using Stores Outside Components</h3><p>blok.store(name, def) returns the store, the same object shared mounts see as this.store[name]. blok.store(name) with one argument looks up a registered store and returns undefined for an unknown name.</p><p>store.$state holds the state keys only, without computed values, methods, loading or error, so JSON.stringify, Object.keys and spread work on it. Assigning an object writes each of its keys, like Object.assign; keys missing from it stay unchanged. $state is a reserved name, so do not use it as a state key.</p><pre class="code-block"><code class="language-javascript">const auth = blok.store('auth')
+this.store.auth.error.login    // rejection value (typically Error) or null</code></pre><h3 id="store-outside">Using Stores Outside Components</h3><p>blok.store(name, def) returns the store, the same object shared mounts see as this.store[name]. blok.store(name) with one argument looks up a registered store and returns undefined for an unknown name.</p><p>store.$state holds the state keys only, without computed values, methods, loading or error, so JSON.stringify, Object.keys and spread work on it. Assigning an object writes each of its keys, like Object.assign; keys missing from it stay unchanged. $state is a reserved name, so do not use it as a state key. A state key named loading or error is shadowed by async tracking: store.error is the per-method error map, so read the key as store.$state.error.</p><pre class="code-block"><code class="language-javascript">const auth = blok.store('auth')
 
 JSON.stringify(auth.$state)     // '{"user":null,"token":null}'
 auth.$state = { user, token }   // the view and computed values update
@@ -1267,7 +1267,7 @@ this.store.auth.loading.login  // true while running
 this.store.auth.error.login    // rejection value (typically Error) or null`),
               sub('store-outside', 'Using Stores Outside Components'),
               p('blok.store(name, def) returns the store, the same object shared mounts see as this.store[name]. blok.store(name) with one argument looks up a registered store and returns undefined for an unknown name.'),
-              p('store.$state holds the state keys only, without computed values, methods, loading or error, so JSON.stringify, Object.keys and spread work on it. Assigning an object writes each of its keys, like Object.assign; keys missing from it stay unchanged. $state is a reserved name, so do not use it as a state key.'),
+              p('store.$state holds the state keys only, without computed values, methods, loading or error, so JSON.stringify, Object.keys and spread work on it. Assigning an object writes each of its keys, like Object.assign; keys missing from it stay unchanged. $state is a reserved name, so do not use it as a state key. A state key named loading or error is shadowed by async tracking: store.error is the per-method error map, so read the key as store.$state.error.'),
               c(`const auth = blok.store('auth')
 
 JSON.stringify(auth.$state)     // '{"user":null,"token":null}'

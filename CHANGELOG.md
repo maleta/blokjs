@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-10-20
+
+### Fixed
+
+- The script-tag builds (`blokjs.js`, `blokjs.min.js`) expose `blok.watch`. `window.blok` now carries every export of the package
+
 ## [0.7.0] - 2026-10-20
 
 ### Added
