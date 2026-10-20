@@ -333,6 +333,7 @@ JSON.stringify(auth.$state)        // '{"user":{"name":"Alice"}}'
 auth.$state = { user: null }       // assigns each key, like Object.assign; missing keys stay
 ```
 `$state` is reserved: do not use it as a state key.
+A state key named `loading` or `error` is shadowed by async tracking: `store.error` is the per-method error map, so read the key as `store.$state.error`.
 
 ### Watching from outside components
 

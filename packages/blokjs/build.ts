@@ -1,6 +1,7 @@
 import * as esbuild from 'esbuild'
+import { pathToFileURL } from 'node:url'
 
-const shared: esbuild.BuildOptions = {
+export const shared: esbuild.BuildOptions = {
   entryPoints: ['src/index.ts'],
   bundle: true,
   format: 'iife',
@@ -8,7 +9,7 @@ const shared: esbuild.BuildOptions = {
   target: 'es2020',
   define: { __DEV__: 'true' },
   footer: {
-    js: ';(function(){var e=__blokExports;if(typeof window!=="undefined"){window.blok={component:e.component,mount:e.mount,store:e.store,validate:e.validate}}})()',
+    js: ';(function(){var e=__blokExports;if(typeof window!=="undefined"){window.blok={...e}}})()',
   },
 }
 
@@ -44,4 +45,4 @@ async function build() {
   console.log('Build complete: dist/blokjs.js, dist/blokjs.min.js, dist/blokjs.esm.js, dist/blokjs.esm.min.js, dist/blokjs-server.mjs')
 }
 
-build()
+if (import.meta.url === pathToFileURL(process.argv[1]).href) build()
