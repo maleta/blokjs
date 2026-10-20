@@ -3,11 +3,12 @@ import { mountRoot } from './renderer'
 import { createRouter } from './router'
 import { untracked } from './reactive'
 import { validateMountOptions, validate } from './validate'
-import { component, store, createMountApp, rootDef } from './app'
+import { component, store, watch, createMountApp, rootDef } from './app'
 
-export { component, store, validate }
-export type { ComponentDef, MountOptions } from './component'
-export type { StoreDef } from './store'
+export { component, store, watch, validate }
+export type { ComponentDef, MountOptions, WatchEntry } from './component'
+export type { Store, StoreDef } from './store'
+export type { WatchOptions } from './reactive'
 
 const SSR_ATTR = 'data-blok-ssr'
 let routerOwner: { destroy: () => void } | null = null

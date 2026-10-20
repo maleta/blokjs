@@ -1,5 +1,7 @@
 import { createApp, type App, type ComponentDef, type MountOptions } from './component'
-import { createStoreInstance, createStoreProxy, type StoreDef, type StoreInstance } from './store'
+import { createStoreInstance, createStoreProxy, type Store, type StoreDef, type StoreInstance } from './store'
+import { createWatcher, type WatchOptions } from './reactive'
+import { Scope } from './scope'
 import { validateComponentDef, validateStoreDef } from './validate'
 
 const globalRegistry = new Map<string, ComponentDef>()
@@ -12,15 +14,42 @@ export function component(name: string, def: ComponentDef): void {
   globalRegistry.set(name, def)
 }
 
-export function store(name: string, def: StoreDef): void {
+/**
+ * Register a global store, or look one up when called with a name only.
+ * @returns the store that shared mounts see as `this.store[name]`. A duplicate registration
+ *   warns and returns the existing store; a lookup of an unknown name returns `undefined`.
+ */
+export function store(name: string): Store | undefined
+export function store(name: string, def: StoreDef): Store
+export function store(name: string, def?: StoreDef): Store | undefined {
+  if (!def) return globalStores.get(name)?.proxy
   validateStoreDef(name, def)
-  if (globalStores.has(name)) {
+  const existing = globalStores.get(name)
+  if (existing) {
     console.warn(`[blok] Store "${name}" already registered. Skipping.`)
-    return
+    return existing.proxy
   }
+  const inst = createStoreInstance(name, def)
   globalStoreDefs.set(name, def)
-  globalStores.set(name, createStoreInstance(name, def))
+  globalStores.set(name, inst)
   globalStoreProxy = createStoreProxy(globalStores)
+  return inst.proxy
+}
+
+/**
+ * Call `callback(newValue, oldValue)` whenever the value returned by `getter` changes.
+ * The getter is tracked like a computed; callbacks run in the same microtask batch as other effects.
+ * Isolated mounts have their own store copies, which a watch on `blok.store(name)` does not see.
+ * @returns `stop()`, which ends the watch
+ */
+export function watch<T>(
+  getter: () => T,
+  callback: (newValue: T, oldValue: T | undefined) => void,
+  options: WatchOptions = {},
+): () => void {
+  const scope = new Scope()
+  createWatcher(getter, callback, options, scope)
+  return () => scope.dispose()
 }
 
 /** App for one mount: shares the global registry and stores, or copies them when `isolated`. */

@@ -94,7 +94,9 @@ function collectMountOptions(opts: Record<string, any>): string[] {
 }
 
 function collectStoreDef(name: string, def: StoreDef): string[] {
-  return collectUnknownKeys(def, VALID_STORE_KEYS, k => `Unknown property "${k}" in store "${name}"`)
+  const w = collectUnknownKeys(def, VALID_STORE_KEYS, k => `Unknown property "${k}" in store "${name}"`)
+  if (def.state && '$state' in def.state) w.push(`"$state" in state of store "${name}" is a reserved name.`)
+  return w
 }
 
 function collectTemplate(tag: string, opts: Record<string, any>, methods: Record<string, any> | undefined): string[] {
@@ -197,8 +199,10 @@ function collectMethodTypes(name: string, def: ComponentDef): string[] {
     }
   }
   if (def.watch) {
-    for (const [key, fn] of Object.entries(def.watch)) {
-      if (typeof fn !== 'function') w.push(`"${name}": watcher "${key}" is not a function.`)
+    for (const [key, entry] of Object.entries(def.watch)) {
+      if (typeof entry === 'function') continue
+      if (entry == null || typeof entry !== 'object') w.push(`"${name}": watcher "${key}" is not a function.`)
+      else if (typeof entry.handler !== 'function') w.push(`"${name}": watcher "${key}" has no handler function.`)
     }
   }
   return w

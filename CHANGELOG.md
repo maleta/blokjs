@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `blok.store(name, def)` returns the store, the same object shared mounts see as `this.store[name]`. `blok.store(name)` looks up a registered store and returns `undefined` for an unknown name. A duplicate registration still warns and returns the existing store
+- `store.$state`: the state keys only, without computed values, methods, `loading` or `error`. It works with `JSON.stringify`, `Object.keys` and spread. Assigning an object writes each of its keys, like `Object.assign`, and leaves the other keys unchanged. `$state` is a reserved state key
+- `blok.watch(getter, callback, { deep, immediate })` watches reactive values outside components and returns `stop()`. With `deep`, any nested change calls back, including `push`, `splice` and adding or deleting a key. In `@maleta/blokjs/server` it does nothing
+- Component `watch` entries accept `{ handler, deep, immediate }` beside a plain function
+
+### Fixed
+
+- Views and computed values that list an object's keys (`Object.keys`, `for...in`, spread) update when a key is added or deleted
+
 ## [0.6.0] - 2026-10-20
 
 ### Added

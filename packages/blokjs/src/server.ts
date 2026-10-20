@@ -4,10 +4,21 @@ import { mountRoot, setRenderDocument, type NodeFactory } from './renderer'
 import { createServerRouter } from './router'
 import { validateMountOptions, validate } from './validate'
 import { createStringDocument, serializeChildren } from './string-dom'
+import type { WatchOptions } from './reactive'
 
 export { component, store, validate }
-export type { ComponentDef, MountOptions } from './component'
-export type { StoreDef } from './store'
+export type { ComponentDef, MountOptions, WatchEntry } from './component'
+export type { Store, StoreDef } from './store'
+export type { WatchOptions } from './reactive'
+
+/** Server rendering never reacts to changes: the watch is not set up and `stop()` does nothing. */
+export function watch<T>(
+  _getter: () => T,
+  _callback: (newValue: T, oldValue: T | undefined) => void,
+  _options: WatchOptions = {},
+): () => void {
+  return () => {}
+}
 
 export interface RenderOptions {
   /** Path, with optional query, that the router renders. Default `/`. */
