@@ -108,6 +108,16 @@ this.store.auth.login(email, pw)
 this.store.auth.isLoggedIn
 ```
 
+`blok.store()` returns the store, so code outside components can read, write and watch it:
+
+```js
+const auth = blok.store('auth')    // look up a registered store
+const stop = blok.watch(() => auth.$state, state => {
+  localStorage.setItem('auth', JSON.stringify(state))
+}, { deep: true })
+auth.$state = { user: null }       // assigns each key, like Object.assign
+```
+
 ## Routing
 
 ```js

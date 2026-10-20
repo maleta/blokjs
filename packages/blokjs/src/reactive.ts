@@ -1,6 +1,8 @@
 import { Scope } from './scope'
 
 export const RAW = Symbol.for('blokjs-raw')
+// Dependency key for an object's key set, read by ownKeys and changed by adding or deleting a key
+const ITERATE = Symbol('iterate')
 
 // --- Dependency tracking ---
 
@@ -93,6 +95,37 @@ export function createEffect(fn: () => void, scope: Scope): void {
   effect.run()
 }
 
+export interface WatchOptions {
+  /** Track every nested key, and call back on any nested change even when the value's identity is unchanged. */
+  deep?: boolean
+  /** Call back once right away, with `undefined` as the old value. */
+  immediate?: boolean
+}
+
+/** Call `callback` from an effect in `scope` whenever the tracked `getter` result changes. */
+export function createWatcher<T>(
+  getter: () => T,
+  callback: (newValue: T, oldValue: T | undefined) => void,
+  options: WatchOptions,
+  scope: Scope,
+): void {
+  let first = true
+  let oldValue: T | undefined
+  createEffect(() => {
+    const value = getter()
+    if (options.deep) traverse(value)
+    if (first) {
+      first = false
+      oldValue = value
+      if (options.immediate) untracked(() => callback(value, undefined))
+      return
+    }
+    if (!options.deep && value === oldValue) return
+    const prev = oldValue
+    oldValue = value
+    untracked(() => callback(value, prev))
+  }, scope)
+}
 
 export function pauseTracking(): void {
   effectStack.push(activeEffect)
@@ -217,19 +250,28 @@ export function createProxy(data: Record<string, any>): any {
       set(obj, key, val) {
         const unwrapped = val != null && typeof val === 'object' && val[RAW] !== undefined
           ? val[RAW] : val
+        const had = Reflect.has(obj, key)
         const old = Reflect.get(obj, key)
         Reflect.set(obj, key, unwrapped)
         if (old !== unwrapped && typeof key !== 'symbol') {
           trigger(obj, key)
           if (Array.isArray(obj) && /^\d+$/.test(key as string)) trigger(obj, 'length')
         }
+        if (!had && typeof key !== 'symbol') trigger(obj, ITERATE)
         return true
       },
       deleteProperty(obj, key) {
         const had = Reflect.has(obj, key)
         Reflect.deleteProperty(obj, key)
-        if (had && typeof key !== 'symbol') trigger(obj, key)
+        if (had && typeof key !== 'symbol') {
+          trigger(obj, key)
+          trigger(obj, ITERATE)
+        }
         return true
+      },
+      ownKeys(obj) {
+        track(obj, ITERATE)
+        return Reflect.ownKeys(obj)
       },
     })
 
@@ -241,6 +283,17 @@ export function createProxy(data: Record<string, any>): any {
 }
 
 // --- Utilities ---
+
+/** Read every nested key and index of `value` so the running effect tracks all of them. */
+export function traverse(value: unknown, seen: Set<object> = new Set()): void {
+  if (value == null || typeof value !== 'object' || seen.has(value)) return
+  seen.add(value)
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) traverse(value[i], seen)
+    return
+  }
+  for (const key of Object.keys(value)) traverse((value as Record<string, unknown>)[key], seen)
+}
 
 export function setByPath(obj: any, path: string[], val: any): void {
   let c = obj

@@ -8,6 +8,12 @@ export interface StoreDef {
   methods?: Record<string, (this: any, ...args: any[]) => any>
 }
 
+/** A registered store: state, computed values and methods by name, plus `$state`. */
+export type Store = Record<string, any> & {
+  /** The state keys only. Assigning an object writes each of its own keys, like `Object.assign`. */
+  $state: Record<string, any>
+}
+
 export interface StoreInstance {
   name: string
   stateData: Record<string, any>
@@ -16,7 +22,7 @@ export interface StoreInstance {
   loadingProxy: any
   errorData: Record<string, any>
   errorProxy: any
-  proxy: any
+  proxy: Store
   scope: Scope
   computedSignals: Map<string, ComputedSignal>
 }
@@ -48,6 +54,7 @@ export function createStoreInstance(name: string, def: StoreDef): StoreInstance 
 
       if (k === 'loading') return loadingProxy
       if (k === 'error') return errorProxy
+      if (k === '$state') return stateProxy
 
       if (def.methods && k in def.methods) {
         let cached = methodCache.get(k)
@@ -74,6 +81,10 @@ export function createStoreInstance(name: string, def: StoreDef): StoreInstance 
     set(_, key, val) {
       if (typeof key === 'symbol') return true
       const k = key as string
+      if (k === '$state') {
+        if (val != null && typeof val === 'object') Object.assign(stateProxy, val)
+        return true
+      }
       if ((def.methods && k in def.methods) || (def.computed && k in def.computed)) {
         console.warn(`[blok] Cannot write to ${def.computed && k in def.computed ? 'computed' : 'method'} "${k}" on store`)
         return true

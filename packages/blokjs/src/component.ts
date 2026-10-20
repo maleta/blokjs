@@ -1,5 +1,5 @@
 import { BlokRef, REF, isRef } from './ref-proxy'
-import { createProxy, setByPath, untracked, createEffect, createComputed, type ComputedSignal } from './reactive'
+import { createProxy, setByPath, createComputed, createWatcher, type ComputedSignal, type WatchOptions } from './reactive'
 import { Scope } from './scope'
 import { wrapAsync } from './async-tracking'
 import type { StoreInstance } from './store'
@@ -8,11 +8,17 @@ export interface ComponentDef {
   props?: string[]
   state?: Record<string, any>
   computed?: Record<string, (this: any) => any>
-  watch?: Record<string, (this: any, newVal: any, oldVal: any) => void>
+  watch?: Record<string, WatchHandler | WatchEntry>
   methods?: Record<string, (this: any, ...args: any[]) => any>
   mount?: (this: any) => void
   unmount?: (this: any) => void
   view: ($: any) => any
+}
+
+export type WatchHandler = (this: any, newVal: any, oldVal: any) => void
+
+export interface WatchEntry extends WatchOptions {
+  handler: WatchHandler
 }
 
 export interface MountOptions extends ComponentDef {
@@ -390,17 +396,14 @@ export function setOnInstance(inst: ComponentInstance, path: string[], value: an
 
 export function setupWatchers(inst: ComponentInstance): void {
   if (!inst.def.watch) return
-  for (const [key, fn] of Object.entries(inst.def.watch)) {
+  for (const [key, entry] of Object.entries(inst.def.watch)) {
     const path = key.split('.')
-    let oldVal = untracked(() => resolveOnInstance(inst, path))
-
-    createEffect(() => {
-      const newVal = resolveOnInstance(inst, path)
-      if (newVal !== oldVal) {
-        const prev = oldVal
-        oldVal = newVal
-        fn.call(inst.context, newVal, prev)
-      }
-    }, inst.scope)
+    const { handler, ...options } = typeof entry === 'function' ? { handler: entry } : entry
+    createWatcher(
+      () => resolveOnInstance(inst, path),
+      (newVal, oldVal) => handler.call(inst.context, newVal, oldVal),
+      options,
+      inst.scope,
+    )
   }
 }

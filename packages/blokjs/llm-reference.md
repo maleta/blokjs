@@ -36,7 +36,7 @@ BlokJS is a zero-build, zero-dependency, standalone, reactive, lightweight UI fr
 Options:
 - `state` - reactive state object
 - `computed` - derived values: `{ fullName() { return this.first + ' ' + this.last } }`
-- `watch` - react to changes: `{ search(newVal, oldVal) { this.filter() } }`
+- `watch` - react to changes: `{ search(newVal, oldVal) { this.filter() } }`. Object form: `{ 'store.todos.items': { handler(v) {}, deep: true, immediate: true } }`. `deep` calls back on any nested change (`push`, nested set, key add/delete); `immediate` calls once right away
 - `methods` - functions callable from view and other methods
 - `mount()` - lifecycle hook, called after DOM mount (via microtask)
 - `unmount()` - lifecycle hook, called on destroy (only if `mount()` ran)
@@ -73,6 +73,12 @@ Same options as mount (minus `routes`, `guards`, `mode`), plus:
 ### `blok.store(name, definition)` - Register global store
 
 Options: `state`, `computed`, `methods`. Accessed in components via `this.store.name`.
+
+Returns the store (the same object as `this.store.name` in shared mounts). `blok.store(name)` with one argument returns a registered store, or `undefined`. A duplicate registration warns and returns the existing store.
+
+### `blok.watch(getter, callback, options?)` - Watch outside components
+
+Returns `stop()`. See Watching from outside components.
 
 ---
 
@@ -319,6 +325,33 @@ Access in components:
 this.store.auth.login('Alice')
 this.store.auth.user.name
 ```
+
+`store.$state` holds the state keys only, without computed, methods, `loading` or `error`:
+```js
+const auth = blok.store('auth')
+JSON.stringify(auth.$state)        // '{"user":{"name":"Alice"}}'
+auth.$state = { user: null }       // assigns each key, like Object.assign; missing keys stay
+```
+`$state` is reserved: do not use it as a state key.
+
+### Watching from outside components
+
+```js
+const todos = blok.store('todos', { state: { items: [] } })
+
+const stop = blok.watch(
+  () => todos.$state,                    // tracked like a computed
+  (state, old) => save(state),           // runs in the same microtask batch as other effects
+  { deep: true, immediate: false },
+)
+stop()                                   // ends the watch
+```
+
+- Without `deep`, the callback runs only when the getter returns a different value (`!==`), so `items.push()` does not fire a watch on `items`.
+- With `deep`, every nested key and index is tracked; `push`, `splice`, a nested set, and adding or deleting a key all call back, once per batch, even though the value's identity is unchanged.
+- `immediate` calls back once right away with `undefined` as the old value.
+- Isolated mounts (`isolated: true`) have their own store copies. `blok.store(name)` and a `blok.watch` on it refer to the global store, not those copies.
+- In `@maleta/blokjs/server`, `watch` does nothing and returns a no-op `stop`.
 
 ---
 
