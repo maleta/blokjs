@@ -24,6 +24,8 @@ const TEMPLATE_KEYS: Record<string, 1> = {
   ref: 1, route: 1, link: 1, on: 1, when: 1, each: 1, as: 1, key: 1, slot: 1,
 }
 
+const NODE_CONTROL_KEYS: Record<string, 1> = { when: 1, each: 1, as: 1, key: 1, children: 1 }
+
 const EVENT_NAMES: Record<string, 1> = {
   click: 1, dblclick: 1, mousedown: 1, mouseup: 1, mousemove: 1, mouseenter: 1, mouseleave: 1,
   keydown: 1, keyup: 1, keypress: 1, input: 1, change: 1, submit: 1, focus: 1, blur: 1,
@@ -133,6 +135,32 @@ function collectTemplate(tag: string, opts: Record<string, any>, methods: Record
   return w
 }
 
+function collectNode(tpl: unknown): string[] {
+  if (tpl == null || typeof tpl !== 'object' || Array.isArray(tpl)) return []
+  const keys = Object.keys(tpl)
+  const tags = keys.filter(k => !(k in NODE_CONTROL_KEYS))
+  const control = keys.filter(k => k in NODE_CONTROL_KEYS)
+
+  if (tags.length > 1) {
+    return [`Element node has ${tags.length} tag keys (${tags.join(', ')}). One node = one element. Put siblings in children.`]
+  }
+  if (tags.length === 1) {
+    const tag = tags[0]
+    return control.map(k => k === 'each'
+      ? `"each" cannot sit next to a tag key (${tag}). Use { each, as, children: [{ ${tag}: ... }] }.`
+      : k === 'when'
+        ? `"when" cannot sit next to a tag key (${tag}). Move it inside: { ${tag}: { when: ... } }, or wrap: { when, children: [...] }.`
+        : `"${k}" cannot sit next to a tag key (${tag}). Move it inside: { ${tag}: { ${k}: ... } }.`)
+  }
+  if ('each' in tpl && 'when' in tpl) {
+    return ['"each" and "when" cannot share a node. Nest one inside the other\'s children.']
+  }
+  if (!('each' in tpl) && !('when' in tpl)) {
+    return ['Empty node: expected exactly one tag key, or each/when.']
+  }
+  return []
+}
+
 function collectStateKeys(name: string, def: ComponentDef): string[] {
   const w: string[] = []
   if (!def.state) return w
@@ -199,6 +227,10 @@ export function validateTemplate(tag: string, opts: Record<string, any>, methods
   emitWarnings(collectTemplate(tag, opts, methods))
 }
 
+export function validateNode(tpl: unknown): void {
+  emitWarnings(collectNode(tpl))
+}
+
 // --- Public API (pure functions, return warnings) ---
 
 export const validate = {
@@ -206,6 +238,7 @@ export const validate = {
   mount: collectMountOptions,
   store: collectStoreDef,
   template: collectTemplate,
+  node: collectNode,
 }
 
 // --- Utilities ---

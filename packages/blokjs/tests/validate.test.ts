@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { validate, validateComponentDef, validateMountOptions, validateStoreDef, validateTemplate } from '../src/validate'
+import { validate, validateComponentDef, validateMountOptions, validateNode, validateStoreDef, validateTemplate } from '../src/validate'
+import { mount } from '../src/index'
 import { createRef } from '../src/ref-proxy'
 
 // --- Public API (validate.*) returns arrays ---
@@ -285,6 +286,60 @@ describe('validate.template', () => {
   })
 })
 
+describe('validate.node', () => {
+  it('accepts valid shapes', () => {
+    const $ = createRef()
+    expect(validate.node({ div: { text: 'hey' } })).toEqual([])
+    expect(validate.node({ div: 'hey' })).toEqual([])
+    expect(validate.node({ br: null })).toEqual([])
+    expect(validate.node({ Card: { props: {} } })).toEqual([])
+    expect(validate.node({ when: $.ok, children: [] })).toEqual([])
+    expect(validate.node({ each: $.items, as: 'item', key: 'id', children: [] })).toEqual([])
+    expect(validate.node('text')).toEqual([])
+  })
+
+  it('flags two tag keys', () => {
+    expect(validate.node({ div: { text: 'hey' }, button: { text: 'click' } })).toEqual([
+      'Element node has 2 tag keys (div, button). One node = one element. Put siblings in children.',
+    ])
+  })
+
+  it('flags when next to a tag key', () => {
+    const $ = createRef()
+    const w = validate.node({ when: $.isAdmin, button: { text: 'Delete' } })
+    expect(w).toHaveLength(1)
+    expect(w[0]).toContain('"when" cannot sit next to a tag key (button)')
+  })
+
+  it('flags each next to a tag key', () => {
+    const $ = createRef()
+    const w = validate.node({ each: $.items, as: 'item', li: { text: $.item.name } })
+    expect(w).toHaveLength(2)
+    expect(w[0]).toContain('"each" cannot sit next to a tag key (li)')
+    expect(w[1]).toContain('"as" cannot sit next to a tag key (li)')
+  })
+
+  it('flags children next to a tag key', () => {
+    expect(validate.node({ ul: null, children: [] })).toEqual([
+      '"children" cannot sit next to a tag key (ul). Move it inside: { ul: { children: ... } }.',
+    ])
+  })
+
+  it('flags empty and control-only nodes', () => {
+    const empty = 'Empty node: expected exactly one tag key, or each/when.'
+    expect(validate.node({})).toEqual([empty])
+    expect(validate.node({ key: 'id' })).toEqual([empty])
+    expect(validate.node({ children: [] })).toEqual([empty])
+  })
+
+  it('flags each and when on the same node', () => {
+    const $ = createRef()
+    const w = validate.node({ each: $.items, when: $.ok, children: [] })
+    expect(w).toHaveLength(1)
+    expect(w[0]).toContain('"each" and "when" cannot share a node')
+  })
+})
+
 // --- Runtime hooks (console.warn wrappers) ---
 
 describe('runtime validators (console.warn)', () => {
@@ -319,5 +374,16 @@ describe('runtime validators (console.warn)', () => {
     validateTemplate('button', { click: 'missing' }, { other() {} })
     expect(warnings.length).toBeGreaterThan(0)
     expect(warnings[0]).toMatch(/^\[blok warn\]/)
+  })
+  it('validateNode emits console.warn with prefix', () => {
+    validateNode({})
+    expect(warnings).toEqual(['[blok warn] Empty node: expected exactly one tag key, or each/when.'])
+  })
+
+  it('mounting an invalid node warns', () => {
+    const el = document.createElement('div')
+    const app = mount(el, { view: () => ({ div: { text: 'hey' }, button: { text: 'click' } }) })
+    expect(warnings.some(w => w.includes('2 tag keys (div, button)'))).toBe(true)
+    app.destroy()
   })
 })

@@ -420,7 +420,12 @@ $.store.not.ready // 'not' becomes a property name, not negation</code></pre><h3
 
 // Custom elements / web components work too
 { 'my-widget': { class: 'fancy', text: $.data } }  // &lt;my-widget class="fancy"&gt;...&lt;/my-widget&gt;
-{ 'sl-button': { variant: 'primary', text: 'Click' } }  // &lt;sl-button variant="primary"&gt;Click&lt;/sl-button&gt;</code></pre><div class="note">Any lowercase tag name becomes an element: standard HTML, custom elements and SVG. svg and everything inside it are created in the SVG namespace, so tags and attributes such as linearGradient and viewBox work as written; the content of foreignObject is HTML again. Uppercase tags are treated as BlokJS components.</div></div><div id="text-bind" class="section"><h2>Text</h2><div class="table-wrap"><table><thead><tr><th>Key</th><th>Description</th></tr></thead><tbody><tr><td><code class="ic">text</code></td><td>Text content. Static string or reactive ref.</td></tr></tbody></table></div><pre class="code-block"><code class="language-javascript">// Static text
+{ 'sl-button': { variant: 'primary', text: 'Click' } }  // &lt;sl-button variant="primary"&gt;Click&lt;/sl-button&gt;</code></pre><p>Each object describes exactly one element, so it has exactly one tag key. Siblings go in children. Conditionals and loops are their own node shapes ({ when, children } and { each, as, key, children }) and never sit next to a tag key. Development builds warn about any other shape.</p><pre class="code-block"><code class="language-javascript">{ div: 'a', button: 'b' }                    // wrong: only the div renders
+{ when: $.ok, button: 'b' }                  // wrong: when is ignored
+
+{ div: { children: [{ div: 'a' }, { button: 'b' }] } }
+{ button: { when: $.ok, text: 'b' } }
+{ when: $.ok, children: [{ button: 'b' }] }</code></pre><div class="note">Any lowercase tag name becomes an element: standard HTML, custom elements and SVG. svg and everything inside it are created in the SVG namespace, so tags and attributes such as linearGradient and viewBox work as written; the content of foreignObject is HTML again. Uppercase tags are treated as BlokJS components.</div></div><div id="text-bind" class="section"><h2>Text</h2><div class="table-wrap"><table><thead><tr><th>Key</th><th>Description</th></tr></thead><tbody><tr><td><code class="ic">text</code></td><td>Text content. Static string or reactive ref.</td></tr></tbody></table></div><pre class="code-block"><code class="language-javascript">// Static text
 { p: { text: 'Hello World' } }
 
 // Reactive text
@@ -802,7 +807,8 @@ blok.validate.mount({ init() {}, view: ($) =&gt; ({ div: 'hi' }) })
   click: 'save',
   clss: 'btn',
 }, { save() {} })
-// ['&lt;button&gt; has "clss" - did you mean "class"?']</code></pre></div><div id="validate-checks" class="section"><h2>What Gets Caught</h2><p>The validator catches the following issues:</p><ul style="font-size:14px; line-height:1.8; margin:10px 0 16px 20px; color:#333"><li>Missing or non-function view</li><li>Unknown definition keys, with suggestions for typos and names from other frameworks (init, mounted, created, setup, destroyed, data, render, template...). Runs in minified builds too.</li><li>State keys conflicting with reserved names (store, route, refs, el, etc.)</li><li>Duplicate keys across state, computed, and methods</li><li>Non-function mount, unmount, methods, computed, or watch entries</li><li>Event handlers referencing undefined methods</li><li>Template key typos (Levenshtein-based suggestions)</li><li>Invalid router mode values</li></ul><div class="note">All validate functions are pure - they return string arrays and produce no side effects. The runtime validators (called automatically by blok.component, blok.mount, blok.store) use console.warn internally.</div></div></main></div></div>
+// ['&lt;button&gt; has "clss" - did you mean "class"?']</code></pre><h3 id="validate-node">validate.node(tpl)</h3><p>Validates the shape of a view node: exactly one tag key, or a when/each node without a tag key. Catches siblings written on one object, when, each or children next to a tag key, and empty nodes.</p><pre class="code-block"><code class="language-javascript">blok.validate.node({ div: 'a', button: 'b' })
+// ['Element node has 2 tag keys (div, button). One node = one element. Put siblings in children.']</code></pre></div><div id="validate-checks" class="section"><h2>What Gets Caught</h2><p>The validator catches the following issues:</p><ul style="font-size:14px; line-height:1.8; margin:10px 0 16px 20px; color:#333"><li>Missing or non-function view</li><li>Unknown definition keys, with suggestions for typos and names from other frameworks (init, mounted, created, setup, destroyed, data, render, template...). Runs in minified builds too.</li><li>State keys conflicting with reserved names (store, route, refs, el, etc.)</li><li>Duplicate keys across state, computed, and methods</li><li>Non-function mount, unmount, methods, computed, or watch entries</li><li>Event handlers referencing undefined methods</li><li>Template key typos (Levenshtein-based suggestions)</li><li>Invalid node shapes: two tag keys on one object, when, each or children next to a tag key, empty nodes</li><li>Invalid router mode values</li></ul><div class="note">All validate functions are pure - they return string arrays and produce no side effects. The runtime validators (called automatically by blok.component, blok.mount, blok.store) use console.warn internally.</div></div></main></div></div>
   <script src="https://cdn.jsdelivr.net/npm/@maleta/blokjs@0.5.0/dist/blokjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-markup.min.js"></script>
@@ -1569,6 +1575,13 @@ $.store.not.ready // 'not' becomes a property name, not negation`),
 // Custom elements / web components work too
 { 'my-widget': { class: 'fancy', text: $.data } }  // <my-widget class="fancy">...</my-widget>
 { 'sl-button': { variant: 'primary', text: 'Click' } }  // <sl-button variant="primary">Click</sl-button>`),
+              p('Each object describes exactly one element, so it has exactly one tag key. Siblings go in children. Conditionals and loops are their own node shapes ({ when, children } and { each, as, key, children }) and never sit next to a tag key. Development builds warn about any other shape.'),
+              c(`{ div: 'a', button: 'b' }                    // wrong: only the div renders
+{ when: $.ok, button: 'b' }                  // wrong: when is ignored
+
+{ div: { children: [{ div: 'a' }, { button: 'b' }] } }
+{ button: { when: $.ok, text: 'b' } }
+{ when: $.ok, children: [{ button: 'b' }] }`),
               note('Any lowercase tag name becomes an element: standard HTML, custom elements and SVG. svg and everything inside it are created in the SVG namespace, so tags and attributes such as linearGradient and viewBox work as written; the content of foreignObject is HTML again. Uppercase tags are treated as BlokJS components.'),
             ),
 
@@ -2309,6 +2322,11 @@ blok.validate.mount({ init() {}, view: ($) => ({ div: 'hi' }) })
   clss: 'btn',
 }, { save() {} })
 // ['<button> has "clss" - did you mean "class"?']`),
+
+              sub('validate-node', 'validate.node(tpl)'),
+              p('Validates the shape of a view node: exactly one tag key, or a when/each node without a tag key. Catches siblings written on one object, when, each or children next to a tag key, and empty nodes.'),
+              c(`blok.validate.node({ div: 'a', button: 'b' })
+// ['Element node has 2 tag keys (div, button). One node = one element. Put siblings in children.']`),
             ),
 
             sec('validate-checks', 'What Gets Caught',
@@ -2321,6 +2339,7 @@ blok.validate.mount({ init() {}, view: ($) => ({ div: 'hi' }) })
                 { li: 'Non-function mount, unmount, methods, computed, or watch entries' },
                 { li: 'Event handlers referencing undefined methods' },
                 { li: 'Template key typos (Levenshtein-based suggestions)' },
+                { li: 'Invalid node shapes: two tag keys on one object, when, each or children next to a tag key, empty nodes' },
                 { li: 'Invalid router mode values' },
               ] } },
               note('All validate functions are pure - they return string arrays and produce no side effects. The runtime validators (called automatically by blok.component, blok.mount, blok.store) use console.warn internally.'),
