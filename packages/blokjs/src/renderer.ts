@@ -6,7 +6,7 @@ import {
   createInstance, setupWatchers, RESERVED_CONTEXT_KEYS,
 } from './component'
 import { setRawHTML, sanitizeURL } from './sanitize'
-import { validateTemplate } from './validate'
+import { validateNode, validateTemplate } from './validate'
 
 declare const __DEV__: boolean
 const SUSPICIOUS_HTML = /<script[\s>]|on\w+\s*=/i
@@ -254,6 +254,7 @@ export function renderNode(tpl: any, ctx: RenderCtx): Node[] {
   if (tpl == null) return []
   if (typeof tpl === 'string') return [makeText(tpl)]
 
+  if (__DEV__) validateNode(tpl)
   const info = classify(tpl)
   if (info.type === 'when') return renderWhen(tpl, ctx)
   if (info.type === 'each') return renderEach(tpl, ctx)

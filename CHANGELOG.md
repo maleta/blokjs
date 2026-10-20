@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Development builds warn about template nodes with an invalid shape: two tag keys on one object (`{ div, button }`), `when`, `each` or `children` next to a tag key, `each` and `when` on the same node, and empty or control-only nodes. Before, the extra keys were silently ignored, so `{ when: $.isAdmin, button: ... }` rendered the button for everyone. `blok.validate.node(tpl)` runs the same check. From 1.0.0 these will be errors
+
 ## [0.5.1] - 2026-10-04
 
 ### Fixed

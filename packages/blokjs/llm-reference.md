@@ -90,6 +90,22 @@ The `view` function receives `$` (a reactive reference builder) and returns a pl
 { div: { children: [ ... ] } }     // children array
 ```
 
+One node = exactly one shape. Siblings go in `children`; two tags on one object never work, because duplicate keys are lost in JavaScript itself.
+
+```
+Node    = string | Element | Each | When
+Element = { <tag>: string | Ref | Options | null }   // exactly one key
+Each    = { each, as?, key?, children }              // no tag key
+When    = { when, children }                         // no tag key
+```
+
+```js
+{ div: 'a', button: 'b' }                      // WRONG: only div renders
+{ when: $.ok, button: 'b' }                    // WRONG: when is ignored
+{ button: { when: $.ok, text: 'b' } }          // right
+{ when: $.ok, children: [{ button: 'b' }] }    // right
+```
+
 SVG: `svg` and everything inside it are created in the SVG namespace; write camelCase tags and attributes as-is. The content of `foreignObject` is HTML again.
 
 ```js
@@ -531,6 +547,10 @@ blok.validate.store('auth', { state: { user: null }, foo: 1 })
 // Validate a template node
 blok.validate.template('button', { click: 'save', clss: 'btn' }, { save() {} })
 // ['<button> has "clss" - did you mean "class"?']
+
+// Validate a node's shape
+blok.validate.node({ div: 'a', button: 'b' })
+// ['Element node has 2 tag keys (div, button). One node = one element. Put siblings in children.']
 ```
 
 ### What gets caught
@@ -542,6 +562,7 @@ blok.validate.template('button', { click: 'save', clss: 'btn' }, { save() {} })
 - Non-function mount/unmount/methods/computed/watch entries
 - Event handlers referencing undefined methods
 - Template key typos (Levenshtein-based suggestions)
+- Invalid node shapes: two tag keys, `when`/`each`/`children` next to a tag key, empty nodes
 - Invalid router mode
 
 ### LLM debug workflow
